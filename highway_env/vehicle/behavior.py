@@ -51,6 +51,8 @@ class IDMVehicle(ControlledVehicle):
         position: Vector,
         heading: float = 0,
         speed: float = 0,
+        length: float = None,
+        width: float = None,
         target_lane_index: int = None,
         target_speed: float = None,
         route: Route = None,
@@ -58,7 +60,7 @@ class IDMVehicle(ControlledVehicle):
         timer: float = None,
     ):
         super().__init__(
-            road, position, heading, speed, target_lane_index, target_speed, route
+            road, position, heading, speed, length, width, target_lane_index, target_speed, route
         )
         self.enable_lane_change = enable_lane_change
         self.timer = timer or (np.sum(self.position) * np.pi) % self.LANE_CHANGE_DELAY
@@ -83,6 +85,8 @@ class IDMVehicle(ControlledVehicle):
             vehicle.position,
             heading=vehicle.heading,
             speed=vehicle.speed,
+            length=vehicle.LENGTH,
+            width=vehicle.WIDTH,
             target_lane_index=vehicle.target_lane_index,
             target_speed=vehicle.target_speed,
             route=vehicle.route,
@@ -377,6 +381,7 @@ class LinearVehicle(IDMVehicle):
         position: Vector,
         heading: float = 0,
         speed: float = 0,
+        size: float = 1,
         target_lane_index: int = None,
         target_speed: float = None,
         route: Route = None,
@@ -389,6 +394,7 @@ class LinearVehicle(IDMVehicle):
             position,
             heading,
             speed,
+            size,
             target_lane_index,
             target_speed,
             route,

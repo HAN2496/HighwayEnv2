@@ -154,7 +154,7 @@ class TimeToCollisionObservation(ObservationType):
 class KinematicObservation(ObservationType):
     """Observe the kinematics of nearby vehicles."""
 
-    FEATURES: list[str] = ["presence", "x", "y", "vx", "vy"]
+    FEATURES: list[str] = ["presence", "x", "y", "vx", "vy", "length", "width"]
 
     def __init__(
         self,
@@ -164,7 +164,7 @@ class KinematicObservation(ObservationType):
         features_range: dict[str, list[float]] = None,
         absolute: bool = False,
         order: str = "sorted",
-        normalize: bool = True,
+        normalize: bool = False,
         clip: bool = True,
         see_behind: bool = False,
         observe_intentions: bool = False,

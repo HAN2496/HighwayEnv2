@@ -67,22 +67,22 @@ class VehicleGraphics:
             surface.pix(v.LENGTH),
             surface.pix(v.WIDTH),
         )
-        rect_headlight_left = (
-            surface.pix(tire_length + v.LENGTH - headlight_length),
-            surface.pix(length / 2 - (1.4 * v.WIDTH) / 3),
-            surface.pix(headlight_length),
-            surface.pix(headlight_width),
-        )
-        rect_headlight_right = (
-            surface.pix(tire_length + v.LENGTH - headlight_length),
-            surface.pix(length / 2 + (0.6 * v.WIDTH) / 5),
-            surface.pix(headlight_length),
-            surface.pix(headlight_width),
-        )
+        #rect_headlight_left = (
+        #    surface.pix(tire_length + v.LENGTH - headlight_length),
+        #    surface.pix(length / 2 - (1.4 * v.WIDTH) / 3),
+        #    surface.pix(headlight_length),
+        #    surface.pix(headlight_width),
+        #)
+        #rect_headlight_right = (
+        #    surface.pix(tire_length + v.LENGTH - headlight_length),
+        #    surface.pix(length / 2 + (0.6 * v.WIDTH) / 5),
+        #    surface.pix(headlight_length),
+        #    surface.pix(headlight_width),
+        #)
         color = cls.get_color(v, transparent)
         pygame.draw.rect(vehicle_surface, color, rect, 0)
-        pygame.draw.rect(vehicle_surface, cls.lighten(color), rect_headlight_left, 0)
-        pygame.draw.rect(vehicle_surface, cls.lighten(color), rect_headlight_right, 0)
+        #pygame.draw.rect(vehicle_surface, cls.lighten(color), rect_headlight_left, 0)
+        #pygame.draw.rect(vehicle_surface, cls.lighten(color), rect_headlight_right, 0)
         if draw_roof:
             rect_roof = (
                 surface.pix(v.LENGTH / 2 - tire_length / 2),

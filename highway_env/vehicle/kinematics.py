@@ -9,6 +9,11 @@ from highway_env.road.road import Road
 from highway_env.utils import Vector
 from highway_env.vehicle.objects import RoadObject
 
+SIZE = [
+    type('SmallVehicle',   (object,), dict(LENGTH=3.6, WIDTH=1.6)),
+    type('MidsizeVehicle', (object,), dict(LENGTH=5.0, WIDTH=2.0)),
+    type('LargeVehicle',   (object,), dict(LENGTH=13.0, WIDTH=2.4)),
+]
 
 class Vehicle(RoadObject):
     """
@@ -18,10 +23,6 @@ class Vehicle(RoadObject):
     It's state is propagated depending on its steering and acceleration actions.
     """
 
-    LENGTH = 5.0
-    """ Vehicle length [m] """
-    WIDTH = 2.0
-    """ Vehicle width [m] """
     DEFAULT_INITIAL_SPEEDS = [23, 25]
     """ Range for random initial speeds [m/s] """
     MAX_SPEED = 40.0
@@ -37,6 +38,8 @@ class Vehicle(RoadObject):
         position: Vector,
         heading: float = 0,
         speed: float = 0,
+        length: float = 5.0,
+        width: float = 2.0,
         predition_type: str = "constant_steering",
     ):
         super().__init__(road, position, heading, speed)
@@ -47,11 +50,19 @@ class Vehicle(RoadObject):
         self.log = []
         self.history = deque(maxlen=self.HISTORY_SIZE)
 
+        self.LENGTH = length
+        """ Vehicle length [m] """
+
+        self.WIDTH  = width
+        """ Vehicle width [m] """
+
     @classmethod
     def create_random(
         cls,
         road: Road,
         speed: float = None,
+        length: float = None,
+        width: float = None,
         lane_from: str | None = None,
         lane_to: str | None = None,
         lane_id: int | None = None,
@@ -65,6 +76,7 @@ class Vehicle(RoadObject):
 
         :param road: the road where the vehicle is driving
         :param speed: initial speed in [m/s]. If None, will be chosen randomly
+        :param speed: vehicle length and width in [m]. If None, will be chosen randomly
         :param lane_from: start node of the lane to spawn in
         :param lane_to: end node of the lane to spawn in
         :param lane_id: id of the lane to spawn in
@@ -88,6 +100,20 @@ class Vehicle(RoadObject):
                 speed = road.np_random.uniform(
                     Vehicle.DEFAULT_INITIAL_SPEEDS[0], Vehicle.DEFAULT_INITIAL_SPEEDS[1]
                 )
+        width = (
+            width
+            if width is not None
+            else road.np_random.choice([1.8, 2.0, 2.2, 2.4])
+        )
+        if length is None:
+            if width==1.8:
+                length = road.np_random.choice([3.8])
+            elif width==2.0:
+                length = road.np_random.choice([5.0])
+            elif width==2.2:
+                length = road.np_random.choice([5.5, 6.5, 7.5])
+            else:
+                length = road.np_random.choice([8.5, 12.5, 15.0])
         default_spacing = 12 + 1.0 * speed
         offset = (
             spacing
@@ -100,7 +126,7 @@ class Vehicle(RoadObject):
             else 3 * offset
         )
         x0 += offset * road.np_random.uniform(0.9, 1.1)
-        v = cls(road, lane.position(x0, 0), lane.heading_at(x0), speed)
+        v = cls(road, lane.position(x0, 0), lane.heading_at(x0), speed, length, width)
         return v
 
     @classmethod
@@ -113,7 +139,7 @@ class Vehicle(RoadObject):
         :param vehicle: a vehicle
         :return: a new vehicle at the same dynamical state
         """
-        v = cls(vehicle.road, vehicle.position, vehicle.heading, vehicle.speed)
+        v = cls(vehicle.road, vehicle.position, vehicle.heading, vehicle.speed, vehicle.LENGTH, vehicle.WIDTH)
         if hasattr(vehicle, "color"):
             v.color = vehicle.color
         return v
@@ -251,6 +277,8 @@ class Vehicle(RoadObject):
             "long_off": self.lane_offset[0],
             "lat_off": self.lane_offset[1],
             "ang_off": self.lane_offset[2],
+            "length": self.LENGTH,
+            "width": self.WIDTH,
         }
         if not observe_intentions:
             d["cos_d"] = d["sin_d"] = 0

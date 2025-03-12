@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import functools
 import itertools
-from typing import TYPE_CHECKING, Callable, Union
+from typing import TYPE_CHECKING, Callable, Union, Tuple
 
 import numpy as np
 from gymnasium import spaces
@@ -331,6 +331,156 @@ class MultiAgentAction(ActionType):
         )
 
 
+class ContinuousThrottleWithLaneChangeAction(ActionType):
+    """
+    An discrete lane change meta-actions with an continuous action space for throttle.
+    """
+
+    ACCELERATION_RANGE = (-5, 5.0)
+    """Acceleration range: [-x, x], in m/s²."""
+
+    ACTIONS_LAT = {0: "LANE_LEFT", 1: "IDLE", 2: "LANE_RIGHT"}
+    """A mapping of lateral action indexes to labels."""
+
+    def __init__(
+        self,
+        env: AbstractEnv,
+        acceleration_range: tuple[float, float] | None = None,
+        speed_range: tuple[float, float] | None = None,
+        longitudinal: bool = True,
+        lateral: bool = True,
+        dynamical: bool = False,
+        clip: bool = True,
+        normalize: bool = False,
+        **kwargs,
+    ) -> None:
+        """
+        Create a discrete action space of meta-actions.
+
+        :param env: the environment
+        :param longitudinal: include longitudinal actions
+        :param lateral: include lateral actions
+        :param target_speeds: the list of speeds the vehicle is able to track
+        """
+        super().__init__(env)
+        self.acceleration_range = (
+            acceleration_range if acceleration_range else self.ACCELERATION_RANGE
+        )
+        self.speed_range = speed_range
+        self.longitudinal = longitudinal
+        self.lateral = lateral
+        self.dynamical = dynamical
+        self.clip = clip
+        self.normalize = normalize
+        self.acceleration_range = (
+            acceleration_range if acceleration_range else self.ACCELERATION_RANGE
+        )
+        self.speed_range = speed_range
+        self.actions_indexes = {v: k for k, v in self.ACTIONS_LAT.items()}
+
+    def space(self) -> spaces.Space:
+        if self.normalize:
+            return spaces.Tuple(
+                (spaces.Box(-1.0, 1.0, shape=(1,), dtype=np.float32), spaces.Discrete(len(self.ACTIONS_LAT)))
+            )
+        else:
+            return spaces.Tuple(
+                (spaces.Box(*self.acceleration_range, shape=(1,), dtype=np.float32), spaces.Discrete(len(self.ACTIONS_LAT)))
+            )
+
+    @property
+    def vehicle_class(self) -> Callable:
+        return functools.partial(MDPVehicle, target_speeds=self.target_speeds)
+
+    @property
+    def vehicle_class(self) -> Callable:
+        return Vehicle if not self.dynamical else BicycleVehicle
+
+    def get_action(self, action: Tuple[float, int]):
+        if self.clip:
+            if self.normalize:
+                acc = np.clip(action, -1, 1)
+            else:
+                acc = np.clip(action, *self.acceleration_range)
+                acc = utils.lmap(acc, [-1, 1], self.acceleration_range)
+        if self.speed_range:
+            (
+                self.controlled_vehicle.MIN_SPEED,
+                self.controlled_vehicle.MAX_SPEED,
+            ) = self.speed_range
+        if self.ACTIONS_LAT[action] == "LANE_RIGHT":
+            _from, _to, _id = self.controlled_vehicle.target_lane_index
+            target_lane_index = (
+                _from,
+                _to,
+                np.clip(_id + 1, 0, len(self.controlled_vehicle.road.network.graph[_from][_to]) - 1),
+            )
+            if self.controlled_vehicle.road.network.get_lane(target_lane_index).is_reachable_from(
+                self.controlled_vehicle.position
+            ):
+                self.controlled_vehicle.target_lane_index = target_lane_index
+        elif self.ACTIONS_LAT[action] == "LANE_LEFT":
+            _from, _to, _id = self.controlled_vehicle.target_lane_index
+            target_lane_index = (
+                _from,
+                _to,
+                np.clip(_id - 1, 0, len(self.controlled_vehicle.road.network.graph[_from][_to]) - 1),
+            )
+            if self.controlled_vehicle.road.network.get_lane(target_lane_index).is_reachable_from(
+                self.controlled_vehicle.position
+            ):
+                self.controlled_vehicle.target_lane_index = target_lane_index
+        return {
+            "steering": self.controlled_vehicle.steering_control(self.controlled_vehicle.target_lane_index),
+            "acceleration": acc,
+        }
+
+    def act(self, action: Tuple[float, int]) -> None:
+        self.controlled_vehicle.act(self.get_action(action))
+        self.last_action = action
+
+    def act(self, action: int | np.ndarray) -> None:
+        self.controlled_vehicle.act(self.actions[int(action)])
+
+    def get_available_actions(self) -> list[int]:
+        """
+        Get the list of currently available actions.
+
+        Lane changes are not available on the boundary of the road, and speed changes are not available at
+        maximal or minimal speed.
+
+        :return: the list of available actions
+        """
+        actions = [self.actions_indexes["IDLE"]]
+        network = self.controlled_vehicle.road.network
+        for l_index in network.side_lanes(self.controlled_vehicle.lane_index):
+            if (
+                l_index[2] < self.controlled_vehicle.lane_index[2]
+                and network.get_lane(l_index).is_reachable_from(
+                    self.controlled_vehicle.position
+                )
+                and self.lateral
+            ):
+                actions.append(self.actions_indexes["LANE_LEFT"])
+            if (
+                l_index[2] > self.controlled_vehicle.lane_index[2]
+                and network.get_lane(l_index).is_reachable_from(
+                    self.controlled_vehicle.position
+                )
+                and self.lateral
+            ):
+                actions.append(self.actions_indexes["LANE_RIGHT"])
+        if (
+            self.controlled_vehicle.speed_index
+            < self.controlled_vehicle.target_speeds.size - 1
+            and self.longitudinal
+        ):
+            actions.append(self.actions_indexes["FASTER"])
+        if self.controlled_vehicle.speed_index > 0 and self.longitudinal:
+            actions.append(self.actions_indexes["SLOWER"])
+        return actions
+
+
 def action_factory(env: AbstractEnv, config: dict) -> ActionType:
     if config["type"] == "ContinuousAction":
         return ContinuousAction(env, **config)
@@ -340,5 +490,7 @@ def action_factory(env: AbstractEnv, config: dict) -> ActionType:
         return DiscreteMetaAction(env, **config)
     elif config["type"] == "MultiAgentAction":
         return MultiAgentAction(env, **config)
+    elif config["type"] == "ContinuousThrottleWithLaneChangeAction":
+        return ContinuousThrottleWithLaneChangeAction(env, **config)
     else:
         raise ValueError("Unknown action type")

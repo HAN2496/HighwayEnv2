@@ -38,11 +38,13 @@ class ControlledVehicle(Vehicle):
         position: Vector,
         heading: float = 0,
         speed: float = 0,
+        length: float = 5.0,
+        width: float = 2.0,
         target_lane_index: LaneIndex = None,
         target_speed: float = None,
         route: Route = None,
     ):
-        super().__init__(road, position, heading, speed)
+        super().__init__(road, position, heading, speed, length, width)
         self.target_lane_index = target_lane_index or self.lane_index
         self.target_speed = target_speed or self.speed
         self.route = route
@@ -62,6 +64,8 @@ class ControlledVehicle(Vehicle):
             vehicle.position,
             heading=vehicle.heading,
             speed=vehicle.speed,
+            length=vehicle.LENGTH,
+            width=vehicle.WIDTH,
             target_lane_index=vehicle.target_lane_index,
             target_speed=vehicle.target_speed,
             route=vehicle.route,
@@ -264,6 +268,8 @@ class MDPVehicle(ControlledVehicle):
         position: List[float],
         heading: float = 0,
         speed: float = 0,
+        length: float = 5.0,
+        width: float = 2.0,
         target_lane_index: Optional[LaneIndex] = None,
         target_speed: Optional[float] = None,
         target_speeds: Optional[Vector] = None,
@@ -282,7 +288,7 @@ class MDPVehicle(ControlledVehicle):
         :param route: the planned route of the vehicle, to handle intersections
         """
         super().__init__(
-            road, position, heading, speed, target_lane_index, target_speed, route
+            road, position, heading, speed, length, width, target_lane_index, target_speed, route
         )
         self.target_speeds = (
             np.array(target_speeds)
