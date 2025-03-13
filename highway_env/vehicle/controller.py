@@ -290,7 +290,7 @@ class LaneChangeWithThrottleVehicle(ControlledVehicle):
     def act(self, action: dict = None) -> None:
 
         self.follow_road()
-        if self.action is not None:
+        if action is not None:
             if action[1] == "LANE_RIGHT":
                 _from, _to, _id = self.target_lane_index
                 target_lane_index = (
@@ -313,15 +313,14 @@ class LaneChangeWithThrottleVehicle(ControlledVehicle):
                     self.position
                 ):
                     self.target_lane_index = target_lane_index
-
-            action = {
-                "steering": self.steering_control(self.target_lane_index),
-                "acceleration": action[0],
-            }
-            action["steering"] = np.clip(
-                action["steering"], -self.MAX_STEERING_ANGLE, self.MAX_STEERING_ANGLE
-            )
-            super().act(action)
+        action = {
+            "steering": self.steering_control(self.target_lane_index),
+            "acceleration": action[0],
+        }
+        action["steering"] = np.clip(
+            action["steering"], -self.MAX_STEERING_ANGLE, self.MAX_STEERING_ANGLE
+        )
+        super().act(action)
 
 
 class LaneChangeWithTargetSpeedVehicle(ControlledVehicle):
@@ -381,15 +380,14 @@ class LaneChangeWithTargetSpeedVehicle(ControlledVehicle):
                     self.position
                 ):
                     self.target_lane_index = target_lane_index
-
-            action = {
-                "steering": self.steering_control(self.target_lane_index),
-                "acceleration": self.speed_control(self.target_speed),
-            }
-            action["steering"] = np.clip(
-                action["steering"], -self.MAX_STEERING_ANGLE, self.MAX_STEERING_ANGLE
-            )
-            super().act(action)
+        action = {
+            "steering": self.steering_control(self.target_lane_index),
+            "acceleration": self.speed_control(self.target_speed),
+        }
+        action["steering"] = np.clip(
+            action["steering"], -self.MAX_STEERING_ANGLE, self.MAX_STEERING_ANGLE
+        )
+        super().act(action)
 
 
 class MDPVehicle(ControlledVehicle):

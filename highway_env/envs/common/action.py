@@ -380,14 +380,9 @@ class LaneChangeWithThrottleAction(ActionType):
         self.actions_indexes = {v: k for k, v in self.ACTIONS_LAT.items()}
 
     def space(self) -> spaces.Space:
-        if self.normalize:
-            return spaces.Tuple(
-                (spaces.Box(-1.0, 1.0, shape=(1,), dtype=np.float32), spaces.Discrete(len(self.ACTIONS_LAT)))
-            )
-        else:
-            return spaces.Tuple(
-                (spaces.Box(*self.acceleration_range, shape=(1,), dtype=np.float32), spaces.Discrete(len(self.ACTIONS_LAT)))
-            )
+        return spaces.Tuple(
+            (spaces.Box(-1.0, 1.0, shape=(1,), dtype=np.float32), spaces.Discrete(len(self.ACTIONS_LAT)))
+        )
 
     @property
     def vehicle_class(self) -> Callable:
@@ -459,14 +454,9 @@ class LaneChangeWithTargetSpeedAction(ActionType):
         self.actions_indexes = {v: k for k, v in self.ACTIONS_LAT.items()}
 
     def space(self) -> spaces.Space:
-        if self.normalize:
-            return spaces.Tuple(
-                (spaces.Box(-1.0, 1.0, shape=(1,), dtype=np.float32), spaces.Discrete(len(self.ACTIONS_LAT)))
-            )
-        else:
-            return spaces.Tuple(
-                (spaces.Box(*self.acceleration_range, shape=(1,), dtype=np.float32), spaces.Discrete(len(self.ACTIONS_LAT)))
-            )
+        return spaces.Tuple(
+            (spaces.Box(-1.0, 1.0, shape=(1,), dtype=np.float32), spaces.Discrete(len(self.ACTIONS_LAT)))
+        )
 
     @property
     def vehicle_class(self) -> Callable:
@@ -480,7 +470,7 @@ class LaneChangeWithTargetSpeedAction(ActionType):
                 self.controlled_vehicle.MAX_SPEED,
             ) = self.speed_range
         return (
-            utils.lmap(speed, [-1, 1], self.controlled_vehicle.MIN_SPEED, self.controlled_vehicle.MAX_SPEED),
+            utils.lmap(speed, [-1, 1], [self.controlled_vehicle.MIN_SPEED, self.controlled_vehicle.MAX_SPEED]),
             self.ACTIONS_LAT[action[1]],
         )
 
