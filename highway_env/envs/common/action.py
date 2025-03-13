@@ -9,7 +9,7 @@ from gymnasium import spaces
 
 from highway_env import utils
 from highway_env.utils import Vector
-from highway_env.vehicle.controller import MDPVehicle, LaneChangeWithThrottleVehicle, LaneChangeWithTargetSpeedVehicle
+from highway_env.vehicle.controller import MDPVehicle, LaneChangeWithTargetSpeedVehicle
 from highway_env.vehicle.dynamics import BicycleVehicle
 from highway_env.vehicle.kinematics import Vehicle
 
@@ -386,17 +386,22 @@ class LaneChangeWithThrottleAction(ActionType):
 
     @property
     def vehicle_class(self) -> Callable:
-        return LaneChangeWithThrottleVehicle
+        return LaneChangeWithTargetSpeedVehicle
 
     def get_action(self, action: tuple):
-        acc = np.clip(action[0], -1, 1)
+        acc = utils.lmap(np.clip(action[0], -1, 1), [-1, 1], self.acceleration_range)
         if self.speed_range:
             (
                 self.controlled_vehicle.MIN_SPEED,
                 self.controlled_vehicle.MAX_SPEED,
             ) = self.speed_range
+        target_speed = np.clip(
+            self.controlled_vehicle.speed + acc / float(self.env.config["policy_frequency"]),
+            self.controlled_vehicle.MIN_SPEED,
+            self.controlled_vehicle.MAX_SPEED
+        )
         return (
-            utils.lmap(acc, [-1, 1], self.acceleration_range),
+            target_speed,
             self.ACTIONS_LAT[action[1]],
         )
 

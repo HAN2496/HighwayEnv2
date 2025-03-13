@@ -29,6 +29,10 @@ class Vehicle(RoadObject):
     """ Maximum reachable speed [m/s] """
     MIN_SPEED = -40.0
     """ Minimum reachable speed [m/s] """
+    ACCELERATION_RANGE = (-5, 5.0)
+    """Acceleration range: [-x, x], in m/s²."""
+    STEERING_RANGE = (-np.pi / 4, np.pi / 4)
+    """Steering angle range: [-x, x], in rad."""
     HISTORY_SIZE = 30
     """ Length of the vehicle state history, for trajectory display"""
 
@@ -151,6 +155,8 @@ class Vehicle(RoadObject):
         :param action: the input action
         """
         if action:
+            action["steering"] = np.clip(action["steering"], *self.STEERING_RANGE)
+            action["acceleration"] = np.clip(action["acceleration"], *self.ACCELERATION_RANGE)
             self.action = action
 
     def step(self, dt: float) -> None:

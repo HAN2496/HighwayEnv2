@@ -131,9 +131,7 @@ class ControlledVehicle(Vehicle):
             "steering": self.steering_control(self.target_lane_index),
             "acceleration": self.speed_control(self.target_speed),
         }
-        action["steering"] = np.clip(
-            action["steering"], -self.MAX_STEERING_ANGLE, self.MAX_STEERING_ANGLE
-        )
+        print('target speed:', self.target_speed, 'acc:', action["acceleration"])
         super().act(action)
 
     def follow_road(self) -> None:
@@ -257,72 +255,6 @@ class ControlledVehicle(Vehicle):
         return tuple(zip(*pos_heads))
 
 
-class LaneChangeWithThrottleVehicle(ControlledVehicle):
-
-    def __init__(
-        self,
-        road: Road,
-        position: List[float],
-        heading: float = 0,
-        speed: float = 0,
-        length: float = 5.0,
-        width: float = 2.0,
-        target_lane_index: Optional[LaneIndex] = None,
-        target_speed: Optional[float] = None,
-        route: Optional[Route] = None,
-    ) -> None:
-        """
-        Initializes an MDPVehicle
-
-        :param road: the road on which the vehicle is driving
-        :param position: its position
-        :param heading: its heading angle
-        :param speed: its speed
-        :param target_lane_index: the index of the lane it is following
-        :param target_speed: the speed it is tracking
-        :param target_speeds: the discrete list of speeds the vehicle is able to track, through faster/slower actions
-        :param route: the planned route of the vehicle, to handle intersections
-        """
-        super().__init__(
-            road, position, heading, speed, length, width, target_lane_index, target_speed, route
-        )
-
-    def act(self, action: dict = None) -> None:
-
-        self.follow_road()
-        if action is not None:
-            if action[1] == "LANE_RIGHT":
-                _from, _to, _id = self.target_lane_index
-                target_lane_index = (
-                    _from,
-                    _to,
-                    np.clip(_id + 1, 0, len(self.road.network.graph[_from][_to]) - 1),
-                )
-                if self.road.network.get_lane(target_lane_index).is_reachable_from(
-                    self.position
-                ):
-                    self.target_lane_index = target_lane_index
-            elif action[1] == "LANE_LEFT":
-                _from, _to, _id = self.target_lane_index
-                target_lane_index = (
-                    _from,
-                    _to,
-                    np.clip(_id - 1, 0, len(self.road.network.graph[_from][_to]) - 1),
-                )
-                if self.road.network.get_lane(target_lane_index).is_reachable_from(
-                    self.position
-                ):
-                    self.target_lane_index = target_lane_index
-        action = {
-            "steering": self.steering_control(self.target_lane_index),
-            "acceleration": action[0],
-        }
-        action["steering"] = np.clip(
-            action["steering"], -self.MAX_STEERING_ANGLE, self.MAX_STEERING_ANGLE
-        )
-        super().act(action)
-
-
 class LaneChangeWithTargetSpeedVehicle(ControlledVehicle):
 
     def __init__(
@@ -338,7 +270,7 @@ class LaneChangeWithTargetSpeedVehicle(ControlledVehicle):
         route: Optional[Route] = None,
     ) -> None:
         """
-        Initializes an MDPVehicle
+        Initializes an LaneChangeWithTargetSpeedVehicle
 
         :param road: the road on which the vehicle is driving
         :param position: its position
@@ -346,7 +278,6 @@ class LaneChangeWithTargetSpeedVehicle(ControlledVehicle):
         :param speed: its speed
         :param target_lane_index: the index of the lane it is following
         :param target_speed: the speed it is tracking
-        :param target_speeds: the discrete list of speeds the vehicle is able to track, through faster/slower actions
         :param route: the planned route of the vehicle, to handle intersections
         """
         super().__init__(
@@ -354,39 +285,15 @@ class LaneChangeWithTargetSpeedVehicle(ControlledVehicle):
         )
 
     def act(self, action: tuple = None) -> None:
+        """
+        Perform a high-level action.
 
+        :param action: a high-level action (target speed, lane change)
+        """
         self.follow_road()
         if action is not None:
             self.target_speed = np.clip(action[0], self.MIN_SPEED, self.MAX_SPEED)
-            if action[1] == "LANE_RIGHT":
-                _from, _to, _id = self.target_lane_index
-                target_lane_index = (
-                    _from,
-                    _to,
-                    np.clip(_id + 1, 0, len(self.road.network.graph[_from][_to]) - 1),
-                )
-                if self.road.network.get_lane(target_lane_index).is_reachable_from(
-                    self.position
-                ):
-                    self.target_lane_index = target_lane_index
-            elif action[1] == "LANE_LEFT":
-                _from, _to, _id = self.target_lane_index
-                target_lane_index = (
-                    _from,
-                    _to,
-                    np.clip(_id - 1, 0, len(self.road.network.graph[_from][_to]) - 1),
-                )
-                if self.road.network.get_lane(target_lane_index).is_reachable_from(
-                    self.position
-                ):
-                    self.target_lane_index = target_lane_index
-        action = {
-            "steering": self.steering_control(self.target_lane_index),
-            "acceleration": self.speed_control(self.target_speed),
-        }
-        action["steering"] = np.clip(
-            action["steering"], -self.MAX_STEERING_ANGLE, self.MAX_STEERING_ANGLE
-        )
+            action = action[1]
         super().act(action)
 
 
