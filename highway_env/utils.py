@@ -239,6 +239,41 @@ def are_polygons_intersecting(
     return intersecting, will_intersect, translation
 
 
+def distance_between_polygons(
+    a: Vector, b: Vector, displacement_a: Vector, displacement_b: Vector
+) -> tuple[bool, bool, np.ndarray | None]:
+    """
+    Compute the minimum distance between two polygons.
+
+    See https://www.codeproject.com/Articles/15573/2D-Polygon-Collision-Detection
+
+    :param a: polygon A, as a list of [x, y] points
+    :param b: polygon B, as a list of [x, y] points
+    :param displacement_a: velocity of the polygon A
+    :param displacement_b: velocity of the polygon B
+    :return: min_distance
+    """
+    min_distance = np.inf
+    for polygon in [a, b]:
+        for p1, p2 in zip(polygon, polygon[1:]):
+            normal = np.array([-p2[1] + p1[1], p2[0] - p1[0]])
+            normal /= np.linalg.norm(normal)
+            min_a, max_a = project_polygon(a, normal)
+            min_b, max_b = project_polygon(b, normal)
+
+            velocity_projection = normal.dot(displacement_a - displacement_b)
+            if velocity_projection < 0:
+                min_a += velocity_projection
+            else:
+                max_a += velocity_projection
+
+            distance = interval_distance(min_a, max_a, min_b, max_b)
+            if abs(distance) < min_distance:
+                min_distance = abs(distance)
+
+    return min_distance
+
+
 def confidence_ellipsoid(
     data: dict[str, np.ndarray],
     lambda_: float = 1e-5,
