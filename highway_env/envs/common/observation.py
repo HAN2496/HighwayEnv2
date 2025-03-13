@@ -154,7 +154,7 @@ class TimeToCollisionObservation(ObservationType):
 class KinematicObservation(ObservationType):
     """Observe the kinematics of nearby vehicles."""
 
-    FEATURES: list[str] = ["presence", "x", "y", "vx", "vy", "length", "width"]
+    FEATURES: list[str] = ["presence", "x", "y", "vx", "vy"]
 
     def __init__(
         self,

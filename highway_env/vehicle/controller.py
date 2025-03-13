@@ -131,7 +131,6 @@ class ControlledVehicle(Vehicle):
             "steering": self.steering_control(self.target_lane_index),
             "acceleration": self.speed_control(self.target_speed),
         }
-        print('target speed:', self.target_speed, 'acc:', action["acceleration"])
         super().act(action)
 
     def follow_road(self) -> None:
