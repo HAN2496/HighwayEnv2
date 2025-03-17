@@ -9,7 +9,7 @@ from gymnasium import spaces
 
 from highway_env import utils
 from highway_env.utils import Vector
-from highway_env.vehicle.controller import MDPVehicle, LaneChangeWithTargetSpeedVehicle
+from highway_env.vehicle.controller import MDPVehicle, ControlledVehicle
 from highway_env.vehicle.dynamics import BicycleVehicle
 from highway_env.vehicle.kinematics import Vehicle
 
@@ -386,27 +386,18 @@ class LaneChangeWithThrottleAction(ActionType):
 
     @property
     def vehicle_class(self) -> Callable:
-        return LaneChangeWithTargetSpeedVehicle
+        return ControlledVehicle
 
     def get_action(self, action: tuple):
-        acc = utils.lmap(np.clip(action[0], -1, 1), [-1, 1], self.acceleration_range)
-        if self.speed_range:
-            (
-                self.controlled_vehicle.MIN_SPEED,
-                self.controlled_vehicle.MAX_SPEED,
-            ) = self.speed_range
-        target_speed = np.clip(
-            self.controlled_vehicle.speed + acc / float(self.env.config["policy_frequency"]),
-            self.controlled_vehicle.MIN_SPEED,
-            self.controlled_vehicle.MAX_SPEED
-        )
+        acc = utils.lmap(np.clip(action[1], -1, 1), [-1, 1], self.acceleration_range)
         return (
-            target_speed,
-            self.ACTIONS_LAT[action[1]],
+            self.ACTIONS_LAT[action[0]],
+            acc,
         )
 
     def act(self, action: tuple) -> None:
-        self.controlled_vehicle.act(self.get_action(action))
+        action, acc = self.get_action(action)
+        self.controlled_vehicle.act(action, acceleration=acc)
         self.last_action = action
 
 
@@ -465,22 +456,23 @@ class LaneChangeWithTargetSpeedAction(ActionType):
 
     @property
     def vehicle_class(self) -> Callable:
-        return LaneChangeWithTargetSpeedVehicle
+        return ControlledVehicle
 
     def get_action(self, action: tuple):
-        speed = np.clip(action[0], -1, 1)
+        speed = np.clip(action[1], -1, 1)
         if self.speed_range:
             (
                 self.controlled_vehicle.MIN_SPEED,
                 self.controlled_vehicle.MAX_SPEED,
             ) = self.speed_range
         return (
+            self.ACTIONS_LAT[action[0]],
             utils.lmap(speed, [-1, 1], [self.controlled_vehicle.MIN_SPEED, self.controlled_vehicle.MAX_SPEED]),
-            self.ACTIONS_LAT[action[1]],
         )
 
     def act(self, action: tuple) -> None:
-        self.controlled_vehicle.act(self.get_action(action))
+        action, target_speed = self.get_action(action)
+        self.controlled_vehicle.act(action, target_speed=target_speed)
         self.last_action = action
 
 

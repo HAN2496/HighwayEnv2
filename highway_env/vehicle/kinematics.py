@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import copy
-from collections import deque
+from collections import deque, defaultdict
 
 import numpy as np
 
@@ -285,6 +285,7 @@ class Vehicle(RoadObject):
             "ang_off": self.lane_offset[2],
             "length": self.LENGTH,
             "width": self.WIDTH,
+            "lane_index": self.lane_index[-1],
         }
         if not observe_intentions:
             d["cos_d"] = d["sin_d"] = 0

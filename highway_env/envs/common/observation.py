@@ -235,7 +235,7 @@ class KinematicObservation(ObservationType):
             return np.zeros(self.space().shape)
 
         # Add ego-vehicle
-        df = pd.DataFrame.from_records([self.observer_vehicle.to_dict()])
+        df = pd.DataFrame.from_records([self.observer_vehicle.to_dict()], columns=self.features).fillna(np.nan)
         # Add nearby traffic
         close_vehicles = self.env.road.close_objects_to(
             self.observer_vehicle,
@@ -251,10 +251,10 @@ class KinematicObservation(ObservationType):
                 [
                     v.to_dict(origin, observe_intentions=self.observe_intentions)
                     for v in close_vehicles[-self.vehicles_count + 1 :]
-                ]
-            )
+                ],
+                columns=self.features
+            ).fillna(np.nan)
             df = pd.concat([df, vehicles_df], ignore_index=True)
-
         df = df[self.features]
 
         # Normalize and clip

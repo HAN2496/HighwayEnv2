@@ -47,6 +47,7 @@ class ControlledVehicle(Vehicle):
         super().__init__(road, position, heading, speed, length, width)
         self.target_lane_index = target_lane_index or self.lane_index
         self.target_speed = target_speed or self.speed
+        self.target_acc = None
         self.route = route
 
     @classmethod
@@ -90,7 +91,7 @@ class ControlledVehicle(Vehicle):
             self.route = [self.lane_index]
         return self
 
-    def act(self, action: Union[dict, str] = None) -> None:
+    def act(self, action: Union[dict, str] = None, **kwds) -> None:
         """
         Perform a high-level action to change the desired lane or speed.
 
@@ -127,10 +128,17 @@ class ControlledVehicle(Vehicle):
             ):
                 self.target_lane_index = target_lane_index
 
+        if "target_speed" in kwds.keys():
+            self.target_speed = kwds["target_speed"]
+            self.target_acc = None
+        if "acceleration" in kwds.keys():
+            self.target_acc = kwds["acceleration"]
         action = {
             "steering": self.steering_control(self.target_lane_index),
             "acceleration": self.speed_control(self.target_speed),
         }
+        if self.target_acc is not None:
+            action["acceleration"] = self.target_acc
         super().act(action)
 
     def follow_road(self) -> None:
@@ -253,47 +261,10 @@ class ControlledVehicle(Vehicle):
         ]
         return tuple(zip(*pos_heads))
 
-
-class LaneChangeWithTargetSpeedVehicle(ControlledVehicle):
-
-    def __init__(
-        self,
-        road: Road,
-        position: List[float],
-        heading: float = 0,
-        speed: float = 0,
-        length: float = 5.0,
-        width: float = 2.0,
-        target_lane_index: Optional[LaneIndex] = None,
-        target_speed: Optional[float] = None,
-        route: Optional[Route] = None,
-    ) -> None:
-        """
-        Initializes an LaneChangeWithTargetSpeedVehicle
-
-        :param road: the road on which the vehicle is driving
-        :param position: its position
-        :param heading: its heading angle
-        :param speed: its speed
-        :param target_lane_index: the index of the lane it is following
-        :param target_speed: the speed it is tracking
-        :param route: the planned route of the vehicle, to handle intersections
-        """
-        super().__init__(
-            road, position, heading, speed, length, width, target_lane_index, target_speed, route
-        )
-
-    def act(self, action: tuple = None) -> None:
-        """
-        Perform a high-level action.
-
-        :param action: a high-level action (target speed, lane change)
-        """
-        self.follow_road()
-        if action is not None:
-            self.target_speed = np.clip(action[0], self.MIN_SPEED, self.MAX_SPEED)
-            action = action[1]
-        super().act(action)
+    def to_dict(self, origin_vehicle = None, observe_intentions = True):
+        d = super().to_dict(origin_vehicle, observe_intentions)
+        d['target_lane_index'] = self.target_lane_index[-1]
+        return d
 
 
 class MDPVehicle(ControlledVehicle):
