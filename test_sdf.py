@@ -1,30 +1,12 @@
 import numpy as np
-from scipy.spatial import ConvexHull
 import matplotlib.pyplot as plt
+from highway_env.utils import Minkowski_sum, signed_distance
 
 def rotation(P, angle):
     return P @ np.array([[np.cos(angle), np.sin(angle)], [-np.sin(angle), np.cos(angle)]])
 
 def draw_polygon(P, *args, **kwds):
     plt.plot([*P[:, 0], P[0, 0]], [*P[:, 1], P[0, 1]], *args, **kwds)
-
-def Minkowski_sum(P1, P2):
-    hull = ConvexHull(np.repeat(P1, len(P2), axis=0) + np.tile(P2, (len(P1), 1)))
-    return hull.points[hull.vertices]
-
-def signed_distance(polygon, point):
-    sqdist = np.inf
-    sign = 1.0
-    n = len(polygon)
-    for i in range(n):
-        j = (i + n - 1) % n
-        e = polygon[j] - polygon[i]
-        w = point - polygon[i]
-        b = w - e * np.clip(np.dot(w, e)/np.dot(e, e), 0.0, 1.0)
-        sqdist = min(sqdist, np.dot(b, b))
-        c = np.array([point[1]>=polygon[i, 1], point[1]<polygon[j, 1], e[0]*w[1]>e[1]*w[0]])
-        sign = np.where(np.all(c) | np.all(~c), -sign, sign)
-    return sign * np.sqrt(sqdist)
 
 
 

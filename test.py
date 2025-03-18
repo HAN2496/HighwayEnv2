@@ -1,6 +1,6 @@
 import numpy as np
 from highway_env.envs import HighwayEnv
-from highway_env.vehicle.controller import LaneChangeWithTargetSpeedVehicle
+from highway_env.vehicle.controller import ControlledVehicle
 from highway_env.utils import are_polygons_intersecting  # are_polygons_intersecting(poly1, poly2, vel1, vel2)
 
 def polygon(length, width, heading, position) -> np.ndarray:
@@ -27,4 +27,6 @@ config['observation']['features'] = ["presence", "x", "y", "vx", "vy", "heading"
 
 env = HighwayEnv(config, render_mode='human')
 
-vehicle = LaneChangeWithTargetSpeedVehicle.create_from(env.controlled_vehicles[0])
+vehicle = ControlledVehicle.create_from(env.controlled_vehicles[0])
+vehicle.act("LANE_RIGHT")
+print(vehicle.action)

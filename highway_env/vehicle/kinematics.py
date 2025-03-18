@@ -172,17 +172,33 @@ class Vehicle(RoadObject):
         self.clip_actions()
         delta_f = self.action["steering"]
         beta = np.arctan(1 / 2 * np.tan(delta_f))
-        v = self.speed * np.array(
-            [np.cos(self.heading + beta), np.sin(self.heading + beta)]
-        )
-        self.position += v * dt
+        vx, vy, turning_rate, acceleration = self.equation_of_motion(*self.position, self.heading, self.speed, **self.action)
+        self.position[0] += vx * dt
+        self.position[1] += vy * dt
         if self.impact is not None:
             self.position += self.impact
             self.crashed = True
             self.impact = None
-        self.heading += self.speed * np.sin(beta) / (self.LENGTH / 2) * dt
-        self.speed += self.action["acceleration"] * dt
+        self.heading += turning_rate * dt
+        self.speed += acceleration * dt
         self.on_state_update()
+
+    def equation_of_motion(self, x, y, heading, speed, steering, acceleration):
+        """
+        Kinematic equation of motion for ackermann-steering vehicle.
+
+        :param x: x coordinate of the vehicle
+        :param y: y coordinate of the vehicle
+        :param heading: heading angle of the vehicle
+        :param speed: longitudinal speed of the vehicle
+        :param steering: steering angle of the vehicle
+        :param acceleration: longitudinal acceleration of the vehicle
+        """
+        beta = np.arctan(1 / 2 * np.tan(steering))
+        vx = speed * np.cos(heading + beta)
+        vy = speed * np.sin(heading + beta)
+        turning_rate = speed * np.sin(beta) / (self.LENGTH / 2)
+        return vx, vy, turning_rate, acceleration
 
     def clip_actions(self) -> None:
         if self.crashed:
