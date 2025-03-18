@@ -292,6 +292,7 @@ class Vehicle(RoadObject):
             "vx": self.velocity[0],
             "vy": self.velocity[1],
             "heading": self.heading,
+            "speed": self.speed,
             "cos_h": self.direction[0],
             "sin_h": self.direction[1],
             "cos_d": self.destination_direction[0],
@@ -301,6 +302,8 @@ class Vehicle(RoadObject):
             "ang_off": self.lane_offset[2],
             "length": self.LENGTH,
             "width": self.WIDTH,
+            "steering": self.action["steering"],
+            "acceleration": self.action["acceleration"],
             "lane_index": self.lane_index[-1],
         }
         if not observe_intentions:

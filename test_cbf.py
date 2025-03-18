@@ -1,6 +1,4 @@
 import numpy as np
-from scipy.differentiate import derivative, jacobian, hessian
-EPS = np.finfo(np.float32).eps**0.5
 from scipy.optimize import approx_fprime
 
 from highway_env.envs import HighwayEnv
@@ -16,7 +14,7 @@ config = HighwayEnv.default_config()
 config['action']['type'] = 'LaneChangeWithTargetSpeedAction'
 #config['action']['type'] = 'LaneChangeWithThrottleAction'
 config['observation']['type'] = 'Kinematics'
-config['observation']['features'] = ["presence", "x", "y", "vx", "vy", "heading", "length", "width", "lane_index", "target_lane_index"]
+config['observation']['features'] = ["presence", "x", "y", "vx", "vy", "heading", "speed", "length", "width", "lane_index", "target_lane_index"]
 
 
 
@@ -36,6 +34,10 @@ if __name__=="__main__":
 
     max_time = 10.0
     max_steps = int(max_time / config['policy_frequency'])
+
+    eom = lambda x, u: env.controlled_vehicles[0].equation_of_motion(*x, *u)
+    def speed_control(target_speed, speed):
+        return ControlledVehicle.KP_A * (target_speed, speed)
 
     for k in range(max_steps):
         obs, reward, terminated, truncated, info = env.step(action)
