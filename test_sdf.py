@@ -1,6 +1,6 @@
 import numpy as np
 import matplotlib.pyplot as plt
-from highway_env.utils import Minkowski_sum, signed_distance
+from control.utils import Minkowski_sum, signed_distance
 
 def rotation(P, angle):
     return P @ np.array([[np.cos(angle), np.sin(angle)], [-np.sin(angle), np.cos(angle)]])
@@ -15,7 +15,7 @@ if __name__=="__main__":
     L = 5.0
     W = 2.0
 
-    A = np.array(
+    A_p = np.array(
         [
             [ L/2, W/2],
             [-L/2, W/2],
@@ -23,9 +23,12 @@ if __name__=="__main__":
             [ L/2,-W/2]
         ]
     )
+    A = A_p
+    B_p = rotation(A_p, 0.5)[:3]
+    B_t = np.array([7, 5])
+    B = B_p + B_t
 
-    B = rotation(A, 0.5) + np.array([7, 5])
-
+    S_p = Minkowski_sum(A_p, B_p)
     S = Minkowski_sum(A, B)
 
     resoution = 0.1
@@ -41,12 +44,15 @@ if __name__=="__main__":
     ny = int((ylen + 2*ypad)/resoution)
 
     xx, yy = np.meshgrid(np.linspace(xmin - xpad, xmax + xpad, nx), np.linspace(ymin - ypad, ymax + ypad, ny))
-    plt.contourf(xx, yy, np.reshape([signed_distance(S, np.array([x, y])) for x, y in zip(xx.flatten(), yy.flatten())], (ny, nx)), levels=24)
+    #plt.contourf(xx, yy, np.reshape([signed_distance(S, np.array([x, y])) for x, y in zip(xx.flatten(), yy.flatten())], (ny, nx)), levels=24)
+    plt.contourf(xx, yy, np.reshape([signed_distance(S_p, np.array([x, y]) - B_t) for x, y in zip(xx.flatten(), yy.flatten())], (ny, nx)), levels=24)
     plt.colorbar()
 
     draw_polygon(A, 'k')
-    draw_polygon(B, 'k')
+    plt.scatter(0, 0, s=8, c='k')
+    draw_polygon(B, 'k:')
     draw_polygon(S, 'k--')
+    plt.legend(["ego vehicle", "ego vehicle center", "target vehicle", "Minkowski sum"])
 
     plt.axis('equal')
     plt.show()

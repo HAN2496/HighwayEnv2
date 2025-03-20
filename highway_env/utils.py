@@ -6,7 +6,6 @@ import itertools
 from typing import Callable, List, Sequence, Tuple, Union
 
 import numpy as np
-from scipy.spatial import ConvexHull
 
 
 # Useful types
@@ -240,75 +239,6 @@ def are_polygons_intersecting(
     return intersecting, will_intersect, translation
 
 
-def distance_between_polygons(
-    a: Vector, b: Vector, displacement_a: Vector, displacement_b: Vector
-) -> tuple[bool, bool, np.ndarray | None]:
-    """
-    Compute the minimum distance between two polygons.
-
-    See https://www.codeproject.com/Articles/15573/2D-Polygon-Collision-Detection
-
-    :param a: polygon A, as a list of [x, y] points
-    :param b: polygon B, as a list of [x, y] points
-    :param displacement_a: velocity of the polygon A
-    :param displacement_b: velocity of the polygon B
-    :return: min_distance
-    """
-    min_distance = np.inf
-    for polygon in [a, b]:
-        for p1, p2 in zip(polygon, polygon[1:]):
-            normal = np.array([-p2[1] + p1[1], p2[0] - p1[0]])
-            normal /= np.linalg.norm(normal)
-            min_a, max_a = project_polygon(a, normal)
-            min_b, max_b = project_polygon(b, normal)
-
-            velocity_projection = normal.dot(displacement_a - displacement_b)
-            if velocity_projection < 0:
-                min_a += velocity_projection
-            else:
-                max_a += velocity_projection
-
-            distance = interval_distance(min_a, max_a, min_b, max_b)
-            if abs(distance) < min_distance:
-                min_distance = abs(distance)
-
-    return min_distance
-
-
-def Minkowski_sum(polygon1: Vector, polygon2: Vector):
-    """
-    Compute the Minkowski sum of two polygons.
-
-    :param polygon1: polygon 1, as a list of [x, y] points
-    :param polygon2: polygon 2, as a list of [x, y] points
-    :return: polygon of Minkowski sum
-    """
-    hull = ConvexHull(np.repeat(polygon1, len(polygon2), axis=0) + np.tile(polygon2, (len(polygon1), 1)))
-    return hull.points[hull.vertices]
-
-
-def signed_distance(polygon: Vector, point: Vector):
-    """
-    Compute the signed distance between polygon and point.
-
-    :param polygon: polygon, as a list of [x, y] points
-    :param point: point, as [x, y] point
-    :return: signed distance
-    """
-    sqdist = np.inf
-    sign = 1.0
-    n = len(polygon)
-    for i in range(n):
-        j = (i + n - 1) % n
-        e = polygon[j] - polygon[i]
-        w = point - polygon[i]
-        b = w - e * np.clip(np.dot(w, e)/np.dot(e, e), 0.0, 1.0)
-        sqdist = min(sqdist, np.dot(b, b))
-        c = np.array([point[1]>=polygon[i, 1], point[1]<polygon[j, 1], e[0]*w[1]>e[1]*w[0]])
-        sign = np.where(np.all(c) | np.all(~c), -sign, sign)
-    return sign * np.sqrt(sqdist)
-
-
 def confidence_ellipsoid(
     data: dict[str, np.ndarray],
     lambda_: float = 1e-5,
@@ -490,3 +420,28 @@ def solve_trinom(a, b, c):
         return (-b - np.sqrt(delta)) / (2 * a), (-b + np.sqrt(delta)) / (2 * a)
     else:
         return None, None
+
+
+def save_video(filename: str, buffer: list, extension='gif', fps=15, dpi=50, bitrate=1800) -> None:
+    if not extension in ['gif', 'mp4']:
+        raise NotImplementedError(" Supported file extensions: {gif, mp4}")
+    from matplotlib.pyplot import figure, Axes, imshow
+    from matplotlib.animation import FuncAnimation, PillowWriter, FFMpegWriter
+
+    imsize = [float(i)/dpi for i in buffer[0].shape[0:2][::-1]]
+
+    fig = figure()
+    fig.set_size_inches(imsize)
+
+    ax = Axes(fig, [0., 0., 1., 1.])
+    ax.set_axis_off()
+    ax.margins(x=0, y=0, tight=True)
+
+    fig.add_axes(ax)
+
+    ani = FuncAnimation(fig, lambda k: (imshow(buffer[k]),), repeat=True, frames=len(buffer)-1, interval=50)
+    if extension=='gif':
+        writer = PillowWriter(fps=fps, bitrate=bitrate)
+    elif extension=='mp4':
+        writer = FFMpegWriter(fps=fps, bitrate=bitrate)
+    ani.save(filename+'.'+extension, writer=writer, dpi=dpi)

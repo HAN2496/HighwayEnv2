@@ -3,7 +3,7 @@ from scipy.optimize import approx_fprime
 
 from highway_env.envs import HighwayEnv
 from highway_env.vehicle.controller import ControlledVehicle
-from highway_env.utils import Minkowski_sum, signed_distance
+from control.utils import Minkowski_sum, signed_distance
 
 def CBF_QP(obs, eom):
     pass
@@ -14,7 +14,8 @@ config = HighwayEnv.default_config()
 config['action']['type'] = 'LaneChangeWithTargetSpeedAction'
 #config['action']['type'] = 'LaneChangeWithThrottleAction'
 config['observation']['type'] = 'Kinematics'
-config['observation']['features'] = ["presence", "x", "y", "vx", "vy", "heading", "speed", "length", "width", "lane_index", "target_lane_index"]
+config['observation']['absolute'] = False
+config['observation']['features'] = ["presence", "x", "y", "vx", "vy", "heading", "speed", "length", "width", "lane_index", "target_lane_index", "steering"]
 
 
 
@@ -24,7 +25,7 @@ if __name__=="__main__":
 
     lane_change = 1  # {0: "LANE_LEFT", 1: "IDLE", 2: "LANE_RIGHT"}
     if config['action']['type']=='LaneChangeWithTargetSpeedAction':
-        target_speed = 20.0
+        target_speed = 30.0
         target_speed_normalized = target_speed / env.controlled_vehicles[0].MAX_SPEED
         action = (lane_change, target_speed_normalized)
     elif config['action']['type']=='LaneChangeWithThrottleAction':
