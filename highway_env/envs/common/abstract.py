@@ -239,7 +239,7 @@ class AbstractEnv(gym.Env):
         self.time += 1 / self.config["policy_frequency"]
         self._simulate(action)
 
-        obs = self.observation_type.observe()
+        obs = self.observe()
         reward = self._reward(action)
         terminated = self._is_terminated()
         truncated = self._is_truncated()
@@ -280,6 +280,9 @@ class AbstractEnv(gym.Env):
                 self._automatic_rendering()
 
         self.enable_auto_render = False
+
+    def observe(self):
+        return self.observation_type.observe()
 
     def render(self) -> np.ndarray | None:
         """

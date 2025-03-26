@@ -129,10 +129,10 @@ class ControlledVehicle(Vehicle):
                 self.target_lane_index = target_lane_index
 
         if "target_speed" in kwds.keys():
-            self.target_speed = kwds["target_speed"]
+            self.target_speed = np.clip(kwds["target_speed"], self.MIN_SPEED, self.MAX_SPEED)
             self.target_acc = None
         if "acceleration" in kwds.keys():
-            self.target_acc = kwds["acceleration"]
+            self.target_acc = np.clip(kwds["acceleration"], *self.ACCELERATION_RANGE)
         action = {
             "steering": self.steering_control(self.target_lane_index),
             "acceleration": self.speed_control(self.target_speed),

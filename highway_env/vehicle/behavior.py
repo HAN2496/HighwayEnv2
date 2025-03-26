@@ -27,7 +27,7 @@ class IDMVehicle(ControlledVehicle):
     COMFORT_ACC_MIN = -5.0  # [m/s2]
     """Desired maximum deceleration."""
 
-    DISTANCE_WANTED = 5.0 + ControlledVehicle.LENGTH  # [m]
+    #DISTANCE_WANTED = 5.0 + ControlledVehicle.LENGTH  # [m]
     """Desired jam distance to the front vehicle."""
 
     TIME_WANTED = 1.5  # [s]
@@ -64,6 +64,7 @@ class IDMVehicle(ControlledVehicle):
         )
         self.enable_lane_change = enable_lane_change
         self.timer = timer or (np.sum(self.position) * np.pi) % self.LANE_CHANGE_DELAY
+        self.DISTANCE_WANTED = 5.0 + self.LENGTH  # [m]
 
     def randomize_behavior(self):
         self.DELTA = self.road.np_random.uniform(

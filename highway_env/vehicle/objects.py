@@ -22,8 +22,8 @@ class RoadObject(ABC):
     For now we assume all objects are rectangular.
     """
 
-    LENGTH: float = 2  # Object length [m]
-    WIDTH: float = 2  # Object width [m]
+    #LENGTH: float = 2  # Object length [m]
+    #WIDTH: float = 2  # Object width [m]
 
     def __init__(
         self,
@@ -31,6 +31,8 @@ class RoadObject(ABC):
         position: Sequence[float],
         heading: float = 0,
         speed: float = 0,
+        length: float = 2,
+        width: float = 2
     ):
         """
         :param road: the road instance where the object is placed in
@@ -58,7 +60,8 @@ class RoadObject(ABC):
         # If False, this object will not check its own collisions, but it can still collides with other objects that do
         # check their collisions.
         self.check_collisions = True
-
+        self.LENGTH = length
+        self.WIDTH = width
         self.diagonal = np.sqrt(self.LENGTH**2 + self.WIDTH**2)
         self.crashed = False
         self.hit = False

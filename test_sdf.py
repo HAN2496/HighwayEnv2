@@ -25,7 +25,7 @@ if __name__=="__main__":
     )
     A = A_p
     B_p = rotation(A_p, 0.5)[:3]
-    B_t = np.array([7, 5])
+    B_t = np.array([12, 3])
     B = B_p + B_t
 
     S_p = Minkowski_sum(A_p, B_p)
@@ -45,13 +45,14 @@ if __name__=="__main__":
 
     xx, yy = np.meshgrid(np.linspace(xmin - xpad, xmax + xpad, nx), np.linspace(ymin - ypad, ymax + ypad, ny))
     #plt.contourf(xx, yy, np.reshape([signed_distance(S, np.array([x, y])) for x, y in zip(xx.flatten(), yy.flatten())], (ny, nx)), levels=24)
-    plt.contourf(xx, yy, np.reshape([signed_distance(S_p, np.array([x, y]) - B_t) for x, y in zip(xx.flatten(), yy.flatten())], (ny, nx)), levels=24)
+    plt.contourf(xx, yy, np.reshape([signed_distance(S_p, np.array([x, y]) - B_t) for x, y in zip(xx.flatten(), yy.flatten())], (ny, nx)), levels=32)
     plt.colorbar()
+    plt.contour(xx, yy, np.reshape([signed_distance(S_p, np.array([x, y]) - B_t) for x, y in zip(xx.flatten(), yy.flatten())], (ny, nx)), 'k--', levels=[0.0])
 
     draw_polygon(A, 'k')
     plt.scatter(0, 0, s=8, c='k')
     draw_polygon(B, 'k:')
-    draw_polygon(S, 'k--')
+    #draw_polygon(S, 'k--')
     plt.legend(["ego vehicle", "ego vehicle center", "target vehicle", "Minkowski sum"])
 
     plt.axis('equal')

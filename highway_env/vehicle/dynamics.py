@@ -37,9 +37,9 @@ class BicycleVehicle(Vehicle):
     """
 
     MASS: float = 1  # [kg]
-    LENGTH_A: float = Vehicle.LENGTH / 2  # [m]
-    LENGTH_B: float = Vehicle.LENGTH / 2  # [m]
-    INERTIA_Z: float = 1 / 12 * MASS * (Vehicle.LENGTH**2 + Vehicle.WIDTH**2)  # [kg.m2]
+    #LENGTH_A: float = Vehicle.LENGTH / 2  # [m]
+    #LENGTH_B: float = Vehicle.LENGTH / 2  # [m]
+    #INERTIA_Z: float = 1 / 12 * MASS * (Vehicle.LENGTH**2 + Vehicle.WIDTH**2)  # [kg.m2]
     FRICTION_FRONT: float = 15.0 * MASS  # [N]
     FRICTION_REAR: float = 15.0 * MASS  # [N]
 
@@ -47,13 +47,16 @@ class BicycleVehicle(Vehicle):
     MAX_SPEED: float = 15  # [m/s]
 
     def __init__(
-        self, road: Road, position: Vector, heading: float = 0, speed: float = 0
+        self, road: Road, position: Vector, heading: float = 0, speed: float = 0, length: float = 5.0, width: float = 2.0
     ) -> None:
-        super().__init__(road, position, heading, speed)
+        super().__init__(road, position, heading, speed, length, width)
         self.lateral_speed = 0
         self.yaw_rate = 0
         self.theta = None
         self.A_lat, self.B_lat = self.lateral_lpv_dynamics()
+        self.LENGTH_A = self.LENGTH / 2  # [m]
+        self.LENGTH_B = self.LENGTH / 2  # [m]
+        self.INERTIA_Z = 1 / 12 * self.MASS * (self.LENGTH**2 + self.WIDTH**2)  # [kg.m2]
 
     @property
     def state(self) -> np.ndarray:

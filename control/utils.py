@@ -2,6 +2,9 @@ from typing import Iterable
 import numpy as np
 from numpy.typing import NDArray
 from scipy.spatial import ConvexHull
+from scipy.optimize import approx_fprime
+#from ..highway_env.vehicle.controller import ControlledVehicle
+from highway_env.vehicle.controller import ControlledVehicle
 
 
 
@@ -40,3 +43,55 @@ def signed_distance(polygon: Iterable[NDArray], point: NDArray) -> float:
     return sign * np.sqrt(sqdist)
 
 
+
+def check_possible_lane_changes(vehicle):
+    """
+    Compute the signed distance between polygon and point.
+
+    :param polygon: polygon, as a list of [x, y] points
+    :param point: point, as [x, y] point
+    :return: list of str in {"LANE_LEFT", "IDLE", "LANE_RIGHT"}
+    """
+    possible_lane_changes = ["IDLE"]
+    _from, _to, _id = vehicle.target_lane_index
+    target_lane_index = (
+        _from,
+        _to,
+        np.clip(_id - 1, 0, len(vehicle.road.network.graph[_from][_to]) - 1),
+    )
+    if target_lane_index[-1] != vehicle.target_lane_index[-1]:
+        if vehicle.road.network.get_lane(target_lane_index).is_reachable_from(
+            vehicle.position
+        ):
+            possible_lane_changes.append("LANE_LEFT")
+    target_lane_index = (
+        _from,
+        _to,
+        np.clip(_id + 1, 0, len(vehicle.road.network.graph[_from][_to]) - 1),
+    )
+    if target_lane_index[-1] != vehicle.target_lane_index[-1]:
+        if vehicle.road.network.get_lane(target_lane_index).is_reachable_from(
+            vehicle.position
+        ):
+            possible_lane_changes.append("LANE_RIGHT")
+    
+    return possible_lane_changes
+
+
+def predict_state(dt, steps, vehicle, lane_change, **kwds):
+    v = ControlledVehicle.create_from(vehicle)
+    v.act(lane_change, **kwds)
+    for _ in range(steps):
+        v.step(dt/steps)
+    return np.array([*v.position, v.heading, v.speed])
+
+
+def get_polygon(length=5.0, width=2.0, heading=0.0):
+    return np.array(
+        [
+            [ length/2, width/2],
+            [-length/2, width/2],
+            [-length/2,-width/2],
+            [ length/2,-width/2]
+        ]
+    ) @ np.array([[np.cos(heading), np.sin(heading)], [-np.sin(heading), np.cos(heading)]])

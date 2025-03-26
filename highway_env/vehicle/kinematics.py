@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import copy
-from collections import deque, defaultdict
+from collections import deque
 
 import numpy as np
 
@@ -9,11 +9,6 @@ from highway_env.road.road import Road
 from highway_env.utils import Vector
 from highway_env.vehicle.objects import RoadObject
 
-SIZE = [
-    type('SmallVehicle',   (object,), dict(LENGTH=3.6, WIDTH=1.6)),
-    type('MidsizeVehicle', (object,), dict(LENGTH=5.0, WIDTH=2.0)),
-    type('LargeVehicle',   (object,), dict(LENGTH=13.0, WIDTH=2.4)),
-]
 
 class Vehicle(RoadObject):
     """
@@ -29,12 +24,14 @@ class Vehicle(RoadObject):
     """ Maximum reachable speed [m/s] """
     MIN_SPEED = -40.0
     """ Minimum reachable speed [m/s] """
-    ACCELERATION_RANGE = (-5, 5.0)
+    ACCELERATION_RANGE = (-5.0, 5.0)
     """Acceleration range: [-x, x], in m/s²."""
     STEERING_RANGE = (-np.pi / 4, np.pi / 4)
     """Steering angle range: [-x, x], in rad."""
     HISTORY_SIZE = 30
     """ Length of the vehicle state history, for trajectory display"""
+    LATERAL_TIRE_COEF = 4.0
+    """ Lateral tire friction coefficient"""
 
     def __init__(
         self,
@@ -46,19 +43,13 @@ class Vehicle(RoadObject):
         width: float = 2.0,
         predition_type: str = "constant_steering",
     ):
-        super().__init__(road, position, heading, speed)
+        super().__init__(road, position, heading, speed, length, width)
         self.prediction_type = predition_type
         self.action = {"steering": 0, "acceleration": 0}
         self.crashed = False
         self.impact = None
         self.log = []
         self.history = deque(maxlen=self.HISTORY_SIZE)
-
-        self.LENGTH = length
-        """ Vehicle length [m] """
-
-        self.WIDTH  = width
-        """ Vehicle width [m] """
 
     @classmethod
     def create_random(
@@ -170,8 +161,6 @@ class Vehicle(RoadObject):
         :param dt: timestep of integration of the model [s]
         """
         self.clip_actions()
-        delta_f = self.action["steering"]
-        beta = np.arctan(1 / 2 * np.tan(delta_f))
         vx, vy, turning_rate, acceleration = self.equation_of_motion(*self.position, self.heading, self.speed, **self.action)
         self.position[0] += vx * dt
         self.position[1] += vy * dt
@@ -198,7 +187,8 @@ class Vehicle(RoadObject):
         vx = speed * np.cos(heading + beta)
         vy = speed * np.sin(heading + beta)
         turning_rate = speed * np.sin(beta) / (self.LENGTH / 2)
-        return vx, vy, turning_rate, acceleration
+        slip_angle = np.abs(steering - beta)
+        return vx, vy, turning_rate, np.cos(beta) * acceleration - speed * np.sin(np.abs(beta-steering)) * self.LATERAL_TIRE_COEF * slip_angle
 
     def clip_actions(self) -> None:
         if self.crashed:
