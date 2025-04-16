@@ -1,14 +1,14 @@
 import numpy as np
 from highway_env.envs import HighwayEnv
 from highway_env.utils import save_video, lmap
-from controller.cbf import CBFQP
+from controller.hocbf import HOCBFQP
 from controller.utils import check_possible_lane_changes
 
 
 
 config = HighwayEnv.default_config()
-config['action']['type'] = 'LaneChangeWithTargetSpeedAction'
-#config['action']['type'] = 'LaneChangeWithThrottleAction'
+#config['action']['type'] = 'LaneChangeWithTargetSpeedAction'
+config['action']['type'] = 'LaneChangeWithThrottleAction'
 config['observation']['type'] = 'Kinematics'
 config['observation']['absolute'] = True
 config['observation']['features'] = ["presence", "x", "y", "vx", "vy", "heading", "speed", "length", "width", "lane_index", "target_lane_index", "steering"]
@@ -21,9 +21,6 @@ if __name__=="__main__":
     env = HighwayEnv(config, render_mode='human')
     #env = HighwayEnv(config, render_mode='rgb_array')
 
-    lane_change = 1  # {0: "LANE_LEFT", 1: "IDLE", 2: "LANE_RIGHT"}
-    lane_change_dict = {"LANE_LEFT": 0, "IDLE": 1, "LANE_RIGHT": 2}
-
     max_time = 50.0
     max_steps = int(max_time * config['policy_frequency'])
 
@@ -34,7 +31,7 @@ if __name__=="__main__":
     lane_change_frequency = 0.2
     lane_change_time_count = 0.0
 
-    cbf = CBFQP(env.controlled_vehicles[0], dt, ref_speed)
+    hocbf = HOCBFQP(env.controlled_vehicles[0], dt, ref_speed)
 
     data_buffer = []
     if env.render_mode=='rgb_array':
@@ -49,7 +46,7 @@ if __name__=="__main__":
         else:
             possible_lane_changes = ["IDLE"]
 
-        action = cbf.solve(obs, possible_lane_changes)
+        action = hocbf.solve(obs, possible_lane_changes)
         if action[0]!=1:
             lane_change_time_count = 0.0
         else:
@@ -58,12 +55,12 @@ if __name__=="__main__":
         obs, reward, terminated, truncated, info = env.step(action)
         if terminated:
             break
-        data_buffer.append([k/config['policy_frequency'], obs[0, 6], lmap(action[1], (-1.0, 1.0), (env.controlled_vehicles[0].MIN_SPEED, env.controlled_vehicles[0].MAX_SPEED))])
+        data_buffer.append([k/config['policy_frequency'], obs[0, 6], lmap(action[1], (-1.0, 1.0), env.controlled_vehicles[0].ACCELERATION_RANGE)])
         if env.render_mode=='rgb_array':
             img_buffer.append(env.render())
 
     if env.render_mode=='rgb_array':
-        save_video('cbf_test', img_buffer, extension='gif')
+        save_video('hocbf_test', img_buffer, extension='gif')
 
     import matplotlib.pyplot as plt
 
@@ -75,8 +72,8 @@ if __name__=="__main__":
     plt.ylim([0.0, 40.0])
     plt.ylabel('v')
     plt.subplot(212)
-    plt.plot(data_buffer[:, 0], env.controlled_vehicles[0].MIN_SPEED*np.ones(len(data_buffer)), 'k:')
-    plt.plot(data_buffer[:, 0], env.controlled_vehicles[0].MAX_SPEED*np.ones(len(data_buffer)), 'k:')
+    plt.plot(data_buffer[:, 0], env.controlled_vehicles[0].ACCELERATION_RANGE[0]*np.ones(len(data_buffer)), 'k:')
+    plt.plot(data_buffer[:, 0], env.controlled_vehicles[0].ACCELERATION_RANGE[1]*np.ones(len(data_buffer)), 'k:')
     plt.plot(data_buffer[:, 0], data_buffer[:, 2], 'k')
     plt.ylabel('u')
     plt.xlabel('time [s]')

@@ -1,6 +1,6 @@
 import numpy as np
 import matplotlib.pyplot as plt
-from controller.utils import Minkowski_sum, signed_distance
+from controller.utils import Minkowski_sum, logsumexp_distance
 
 def rotation(P, angle):
     return P @ np.array([[np.cos(angle), np.sin(angle)], [-np.sin(angle), np.cos(angle)]])
@@ -44,19 +44,13 @@ if __name__=="__main__":
     ny = int((ylen + 2*ypad)/resoution)
 
     xx, yy = np.meshgrid(np.linspace(xmin - xpad, xmax + xpad, nx), np.linspace(ymin - ypad, ymax + ypad, ny))
-    #plt.contourf(xx, yy, np.reshape([signed_distance(S, np.array([x, y])) for x, y in zip(xx.flatten(), yy.flatten())], (ny, nx)), levels=24)
-    plt.contourf(xx, yy, np.reshape([signed_distance(S_p, np.array([x, y]) - B_t) for x, y in zip(xx.flatten(), yy.flatten())], (ny, nx)), levels=32)
+    plt.contourf(xx, yy, np.reshape([logsumexp_distance(S_p, np.array([x, y]) - B_t) for x, y in zip(xx.flatten(), yy.flatten())], (ny, nx)), levels=32)
     plt.colorbar()
-    plt.contour(xx, yy, np.reshape([signed_distance(S_p, np.array([x, y]) - B_t) - 0.3 for x, y in zip(xx.flatten(), yy.flatten())], (ny, nx)), 'k--', levels=[0.0])
+    plt.contour(xx, yy, np.reshape([logsumexp_distance(S_p, np.array([x, y]) - B_t) - 0.3 for x, y in zip(xx.flatten(), yy.flatten())], (ny, nx)), 'k--', levels=[0.0])
 
-    from autograd import jacobian, hessian
-    dhdx = jacobian(lambda x: signed_distance(S_p, x))
-    print(dhdx(-B_t), dhdx(0.1 * np.ones(2) - B_t))
-    print(jacobian(lambda x: signed_distance(S_p, -x))(B_t))
-    d2hdx2 = hessian(lambda x: signed_distance(S_p, x))
-    print(d2hdx2(-B_t))
-    print(jacobian(lambda x:-dhdx(x))(-B_t))
-    print(jacobian(lambda x:dhdx(-x))(B_t))
+    from autograd import jacobian
+    jac = jacobian(lambda x: logsumexp_distance(S_p, x))
+    print(jac(-B_t), jac(0.1 * np.ones(2) - B_t))
 
     draw_polygon(A, 'k')
     plt.scatter(0, 0, s=8, c='k')
