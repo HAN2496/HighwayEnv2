@@ -1,9 +1,8 @@
-from typing import Iterable, Optional
+from typing import Iterable
 import numpy as np
 from numpy.typing import NDArray
 from scipy.spatial import ConvexHull
 from autograd import numpy as anp
-import torch
 from highway_env.vehicle.controller import ControlledVehicle
 
 EXP_INPUT_MAX = np.log(np.finfo(float).max)
@@ -24,33 +23,6 @@ def Minkowski_sum(polygon1: Iterable[NDArray], polygon2: Iterable[NDArray]) -> I
 
 
 
-#def signed_distance(polygon: Iterable[NDArray], point: NDArray) -> float:
-#    """
-#    Compute the signed distance between polygon and point.
-#
-#    :param polygon: polygon, as a list of [x, y] points
-#    :param point: point, as [x, y] point
-#    :return: signed distance
-#    """
-#    #sqdist = np.inf
-#    #sign = 1.0
-#    sqdist = []
-#    sign = []
-#    n = len(polygon)
-#    c = np.mean(polygon, axis=0)
-#    for i in range(n):
-#        j = (i + n - 1) % n
-#        e = polygon[j] - polygon[i]
-#        w = point - polygon[i]
-#        e *= np.clip(np.dot(w, e)/np.dot(e, e), 0.0, 1.0)
-#        b = w - e
-#        sqdist.append(np.dot(b, b))
-#        sign.append(np.sign(-np.dot(b, c - polygon[i] - e)))
-#    i = np.argmin(sqdist)
-#    return sign[i] * np.sqrt(sqdist[i])
-
-
-
 def signed_distance(polygon: Iterable[NDArray], point: NDArray) -> float:
     """
     Compute the signed distance between polygon and point.
@@ -68,35 +40,6 @@ def signed_distance(polygon: Iterable[NDArray], point: NDArray) -> float:
     sign = anp.sign(-anp.sum(b * (c - polygon - e), axis=1))
     i = anp.argmin(dist)
     return sign[i] * dist[i]
-
-
-
-#def logsumexp_distance(polygon: Iterable[NDArray], point: NDArray) -> float:
-#    """
-#    Compute the approx. distance between polygon and point using logsumexp trick.
-#
-#    :param polygon: polygon, as a list of [x, y] points
-#    :param point: point, as [x, y] point
-#    :return: (approx.) distance
-#    """
-#    sqdist = []
-#    n = len(polygon)
-#    for i in range(n):
-#        j = (i + n - 1) % n
-#        e = polygon[j] - polygon[i]
-#        w = point - polygon[i]
-#        e *= np.clip(np.dot(w, e)/np.dot(e, e), 0.0, 1.0)
-#        b = w - e
-#        sqdist.append(np.dot(b, b))
-#    dist = np.sqrt(sqdist)
-#    scale = (EXP_INPUT_MAX / n - EXP_INPUT_MIN) / np.max(dist)
-#    return (
-#        EXP_INPUT_MAX / n - np.log(
-#            np.sum(
-#                np.exp(EXP_INPUT_MAX / n - scale * dist)
-#            )
-#        )
-#    ) / scale
 
 
 
