@@ -145,3 +145,6 @@ jupyter_execute
 
 # IDE
 .idea
+
+# MacOS
+.DS_Store
