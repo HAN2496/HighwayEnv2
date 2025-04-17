@@ -2,7 +2,7 @@ import numpy as np
 from scipy.stats import norm
 from scipy.linalg import block_diag
 from autograd import jacobian, hessian
-from qpsolvers import solve_problem, Problem
+from qpsolvers import solve_qp
 from highway_env.vehicle.controller import ControlledVehicle
 from highway_env.utils import lmap
 from .utils import get_polygon, Minkowski_sum, signed_distance, rotation
@@ -13,15 +13,17 @@ lane_change_dict = {"LANE_LEFT": 0, "IDLE": 1, "LANE_RIGHT": 2}
 
 class HOCBFQP:
 
-    def __init__(self, vehicle, dt, ref_speed, safe_dist=0.2, alpha1=0.6, alpha2=2.4, Sigma=np.diag([3.0**2, 0.1**2]), confidence=0.98):
+    def __init__(self, vehicle, dt, ref_speed, safe_dist=0.1, alpha1=lambda x:0.6*x, alpha2=lambda x:2.4*x, mu=np.array([-2.5, 0.0]), Sigma=np.diag([7.5**2, 0.1**2]), confidence=0.98, slack_panelty=1e6):
         self.vehicle = vehicle
         self.dt = dt
         self.ref_speed = ref_speed
         self.safe_dist = safe_dist
         self.alpha1 = alpha1
         self.alpha2 = alpha2
+        self.mu = mu
         self.Sigma = Sigma
         self.quantile = norm.ppf(confidence)
+        self.slack_panelty = slack_panelty
 
 
     def solve(self, obs, possible_lane_changes=None):
@@ -65,9 +67,10 @@ class HOCBFQP:
             dfxdx[:, 2] = np.array([-fx[1], fx[0], 0.0, 0.0])
             dfxdx[:, 3] = dfxds
             gx = np.array([0.0, 0.0, 0.0, np.cos(beta)])
-            A = []
-            b = []
-            for o, h, dhdx, d2hdx2 in zip(obs[1:], h_list, dhdx_list, d2hdx2_list):
+            ns = len(h_list)
+            A = -np.eye(ns, ns+1, k=1)
+            b = np.zeros(ns)
+            for i, (o, h, dhdx, d2hdx2) in enumerate(zip(obs[1:], h_list, dhdx_list, d2hdx2_list)):
                 fz = np.hstack([fx, np.array([o['vx'], o['vy'], 0.0, 0.0])])
                 dfdz = block_diag(dfxdx, np.eye(4, k=2))
                 go = np.zeros((4, 2))
@@ -78,22 +81,23 @@ class HOCBFQP:
                 dLfhdz = dhdz @ dfdz + d2hdz2 @ fz
                 L2fh = dLfhdz @ fz
                 LgLfh = dLfhdz @ gz
-                A.append([-LgLfh[0]])
-                b.append(L2fh + self.alpha2 * (dhdz @ fz + self.alpha1 * h) - self.quantile * np.sqrt(LgLfh[1:] @ self.Sigma @ LgLfh[1:]))
-            sol = solve_problem(
-                Problem(
-                    P=np.diag([0.5]), q=np.array([-uref]),
-                    G=np.array(A), h=np.array(b),
-                    A=None, b=None,
-                    lb=np.array([self.vehicle.ACCELERATION_RANGE[0]]), ub=np.array([self.vehicle.ACCELERATION_RANGE[1]])
-                    #lb=None, ub=None
-                ),
+                A[i, 0] = -LgLfh[0]
+                b[i] = L2fh + self.alpha2(dhdz @ fz + self.alpha1(h)) + LgLfh[1:] @ self.mu - self.quantile * np.sqrt(LgLfh[1:] @ self.Sigma @ LgLfh[1:])
+            sol = solve_qp(
+                P=np.diag([0.5] + [self.slack_panelty] * ns), q=np.array([-uref] + [self.slack_panelty] * ns),
+                G=A, h=b,
+                A=None, b=None,
+                lb=np.array([self.vehicle.ACCELERATION_RANGE[0]] + [0.0] * ns), ub=np.array([self.vehicle.ACCELERATION_RANGE[1]] + [np.inf] * ns),
+                #lb=None, ub=None
                 solver='quadprog'
             )
-            if sol.obj is not None:
-                if sol.obj < cost:
-                    cost = sol.obj
+            if sol is not None:
+                u = sol[0]
+                slack_variables = sol[1:]
+                current_cost = 0.5 * (u - uref) ** 2
+                if current_cost < cost:
+                    cost = current_cost
                     action[0] = lane_change_dict[lane_change]
-                    action[1] = lmap(np.clip(sol.x[0], *self.vehicle.ACCELERATION_RANGE), self.vehicle.ACCELERATION_RANGE, (-1.0, 1.0))
+                    action[1] = lmap(np.clip(u, *self.vehicle.ACCELERATION_RANGE), self.vehicle.ACCELERATION_RANGE, (-1.0, 1.0))
 
         return action

@@ -31,7 +31,7 @@ if __name__=="__main__":
     lane_change_frequency = 0.2
     lane_change_time_count = 0.0
 
-    hocbf = HOCBFQP(env.controlled_vehicles[0], dt, ref_speed)
+    hocbf = HOCBFQP(env.controlled_vehicles[0], dt, ref_speed, alpha1=lambda x:3.6*np.sqrt(x), alpha2=lambda x:2.7*x)
 
     data_buffer = []
     if env.render_mode=='rgb_array':

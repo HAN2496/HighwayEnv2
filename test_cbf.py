@@ -34,7 +34,7 @@ if __name__=="__main__":
     lane_change_frequency = 0.2
     lane_change_time_count = 0.0
 
-    cbf = CBFQP(env.controlled_vehicles[0], dt, ref_speed)
+    cbf = CBFQP(env.controlled_vehicles[0], dt, ref_speed, alpha=lambda x:2.1*np.sqrt(x), mu=np.array([-3.0*dt, 0.0]), Sigma=np.diag([(9.0*dt)**2, (0.1*dt)**2]))
 
     data_buffer = []
     if env.render_mode=='rgb_array':
