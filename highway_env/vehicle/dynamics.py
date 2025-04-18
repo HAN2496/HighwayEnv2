@@ -262,7 +262,7 @@ class BicycleVehicle(Vehicle):
 
 
 def simulate(dt: float = 0.1) -> None:
-    import control
+    import controller
 
     time = np.arange(0, 20, dt)
     vehicle = BicycleVehicle(road=None, position=[0, 5], speed=8.3)
@@ -270,7 +270,7 @@ def simulate(dt: float = 0.1) -> None:
     from highway_env.interval import LPV
 
     A, B = vehicle.full_lateral_lpv_dynamics()
-    K = -np.asarray(control.place(A, B, -np.arange(1, 5)))
+    K = -np.asarray(controller.place(A, B, -np.arange(1, 5)))
     lpv = LPV(
         x0=vehicle.state[[1, 2, 4, 5]].squeeze(),
         a0=A,

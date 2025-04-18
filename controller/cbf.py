@@ -12,7 +12,7 @@ lane_change_dict = {"LANE_LEFT": 0, "IDLE": 1, "LANE_RIGHT": 2}
 
 class CBFQP:
 
-    def __init__(self, vehicle, dt, ref_speed, safe_dist=0.1, alpha=lambda x:0.5*x, mu=np.array([-0.5, 0.0]), Sigma=np.diag([1.5**2, 0.02**2]), confidence=0.98, slack_panelty=1e6):
+    def __init__(self, vehicle, dt, ref_speed, safe_dist=0.1, alpha=lambda x:0.5*x, mu=np.array([-0.5, 0.0]), Sigma=np.diag([1.5**2, 0.02**2]), confidence=0.98, slack_panelty_max=1e6):
         self.vehicle = vehicle
         self.dt = dt
         self.ref_speed = ref_speed
@@ -21,10 +21,10 @@ class CBFQP:
         self.mu = mu
         self.Sigma = Sigma
         self.quantile = norm.ppf(confidence)
-        self.slack_panelty = slack_panelty
+        self.slack_panelty_max = slack_panelty_max
 
 
-    def solve(self, obs, possible_lane_changes=None):
+    def solve(self, obs, *params):
         
         current_speed = obs[0]['speed']
 
@@ -46,9 +46,13 @@ class CBFQP:
             self.vehicle.MIN_SPEED, self.vehicle.MAX_SPEED
         )
         action = [1, 0.0]
-        if possible_lane_changes is None:
-            possible_lane_changes = ['IDLE']
-        for lane_change in possible_lane_changes:
+        if len(params) < 1:
+            params = ((lane_change, 1.0, None),)
+        for lane_change, K, slack_penalties in params:
+            uref = np.clip(
+                current_speed + np.clip(K*(self.ref_speed-current_speed)/self.dt, *self.vehicle.ACCELERATION_RANGE) * self.dt,
+                self.vehicle.MIN_SPEED, self.vehicle.MAX_SPEED
+            )
             v = ControlledVehicle.create_from(self.vehicle)
             v.act(lane_change)
             beta = np.arctan(1 / 2 * np.tan(v.action['steering']))
@@ -73,7 +77,8 @@ class CBFQP:
                 A[i, 0] = -dhdx @ gx
                 b[i] = dhdx @ fx + dhdo @ fo + dhdo @ go @ self.mu + self.alpha(h) - self.quantile * np.sqrt((dhdo@go) @ self.Sigma @ (dhdo@go))
             sol = solve_qp(
-                P=np.diag([0.5] + [self.slack_panelty] * ns), q=np.array([-uref] + [self.slack_panelty] * ns),
+                P=np.diag([0.5] + slack_penalties) if isinstance(slack_penalties, list) else np.diag([0.5] + [self.slack_panelty_max] * ns),
+                q=np.array([-uref] + slack_penalties) if isinstance(slack_penalties, list) else np.array([-uref] + [self.slack_panelty_max] * ns),
                 G=A, h=b,
                 A=None, b=None,
                 lb=np.array([self.vehicle.ACCELERATION_RANGE[0]*self.dt] + [0.0] * ns), ub=np.array([self.vehicle.ACCELERATION_RANGE[1]*self.dt] + [np.inf] * ns),

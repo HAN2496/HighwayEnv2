@@ -34,7 +34,7 @@ if __name__=="__main__":
     lane_change_frequency = 0.2
     lane_change_time_count = 0.0
 
-    cbf = CBFQP(env.controlled_vehicles[0], dt, ref_speed, alpha=lambda x:2.1*np.sqrt(x), mu=np.array([-3.0*dt, 0.0]), Sigma=np.diag([(9.0*dt)**2, (0.1*dt)**2]))
+    cbf = CBFQP(env.controlled_vehicles[0], dt, ref_speed, alpha=lambda x:1.5*np.sqrt(x))
 
     data_buffer = []
     if env.render_mode=='rgb_array':
@@ -49,7 +49,22 @@ if __name__=="__main__":
         else:
             possible_lane_changes = ["IDLE"]
 
-        action = cbf.solve(obs, possible_lane_changes)
+        params = []
+        for lane_change in possible_lane_changes:
+            ego_target_lane_index = obs[0]['target_lane_index']
+            if lane_change=='LANE_LEFT':
+                ego_target_lane_index -= 1
+            if lane_change=='LANE_RIGHT':
+                ego_target_lane_index += 1
+            slack_penalties = []
+            for o in obs[1:]:
+                if np.any([o['lane_index']==obs[0]['lane_index'], o['target_lane_index']==obs[0]['lane_index'], o['lane_index']==ego_target_lane_index, o['target_lane_index']==ego_target_lane_index]):
+                    slack_penalties.append(1e6)
+                else:
+                    slack_penalties.append(1e-2)
+            params.append((lane_change, 0.5, slack_penalties,))  # (lane change, speed feedback gain, penalties for slack variables)
+
+        action = cbf.solve(obs, *params)
         if action[0]!=1:
             lane_change_time_count = 0.0
         else:

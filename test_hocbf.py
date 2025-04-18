@@ -31,7 +31,8 @@ if __name__=="__main__":
     lane_change_frequency = 0.2
     lane_change_time_count = 0.0
 
-    hocbf = HOCBFQP(env.controlled_vehicles[0], dt, ref_speed, alpha1=lambda x:3.6*np.sqrt(x), alpha2=lambda x:2.7*x)
+    #hocbf = HOCBFQP(env.controlled_vehicles[0], dt, ref_speed, alpha1=lambda x:3.6*np.sqrt(x), alpha2=lambda x:2.7*x)
+    hocbf = HOCBFQP(env.controlled_vehicles[0], dt, ref_speed, alpha1=lambda x:2.5*np.sqrt(x), alpha2=lambda x:3.0*x)
 
     data_buffer = []
     if env.render_mode=='rgb_array':
@@ -45,8 +46,23 @@ if __name__=="__main__":
             possible_lane_changes = check_possible_lane_changes(env.controlled_vehicles[0])
         else:
             possible_lane_changes = ["IDLE"]
+        
+        params = []
+        for lane_change in possible_lane_changes:
+            ego_target_lane_index = obs[0]['target_lane_index']
+            if lane_change=='LANE_LEFT':
+                ego_target_lane_index -= 1
+            if lane_change=='LANE_RIGHT':
+                ego_target_lane_index += 1
+            slack_penalties = []
+            for o in obs[1:]:
+                if np.any([o['lane_index']==obs[0]['lane_index'], o['target_lane_index']==obs[0]['lane_index'], o['lane_index']==ego_target_lane_index, o['target_lane_index']==ego_target_lane_index]):
+                    slack_penalties.append(1e6)
+                else:
+                    slack_penalties.append(1e-2)
+            params.append((lane_change, 0.5, slack_penalties,))  # (lane change, speed feedback gain, penalties for slack variables)
 
-        action = hocbf.solve(obs, possible_lane_changes)
+        action = hocbf.solve(obs, *params)
         if action[0]!=1:
             lane_change_time_count = 0.0
         else:

@@ -13,7 +13,7 @@ lane_change_dict = {"LANE_LEFT": 0, "IDLE": 1, "LANE_RIGHT": 2}
 
 class HOCBFQP:
 
-    def __init__(self, vehicle, dt, ref_speed, safe_dist=0.1, alpha1=lambda x:0.6*x, alpha2=lambda x:2.4*x, mu=np.array([-2.5, 0.0]), Sigma=np.diag([7.5**2, 0.1**2]), confidence=0.98, slack_panelty=1e6):
+    def __init__(self, vehicle, dt, ref_speed, safe_dist=0.1, alpha1=lambda x:0.6*x, alpha2=lambda x:2.4*x, mu=np.array([-2.5, 0.0]), Sigma=np.diag([7.5**2, 0.1**2]), confidence=0.98, slack_panelty_max=1e6):
         self.vehicle = vehicle
         self.dt = dt
         self.ref_speed = ref_speed
@@ -23,10 +23,10 @@ class HOCBFQP:
         self.mu = mu
         self.Sigma = Sigma
         self.quantile = norm.ppf(confidence)
-        self.slack_panelty = slack_panelty
+        self.slack_panelty_max = slack_panelty_max
 
 
-    def solve(self, obs, possible_lane_changes=None):
+    def solve(self, obs, *params):
         
         current_speed = obs[0]['speed']
 
@@ -45,11 +45,11 @@ class HOCBFQP:
             d2hdx2_list.append(hessian(h)(np.zeros(4)))
 
         cost = np.inf
-        uref = np.clip((self.ref_speed - current_speed)/self.dt, *self.vehicle.ACCELERATION_RANGE)
         action = [1, lmap(np.clip(-current_speed/self.dt, *self.vehicle.ACCELERATION_RANGE), self.vehicle.ACCELERATION_RANGE, (-1.0, 1.0))]
-        if possible_lane_changes is None:
-            possible_lane_changes = ['IDLE']
-        for lane_change in possible_lane_changes:
+        if len(params) < 1:
+            params = ((lane_change, 1.0, None),)
+        for lane_change, K, slack_penalties in params:
+            uref = np.clip(K*(self.ref_speed-current_speed)/self.dt, *self.vehicle.ACCELERATION_RANGE)
             v = ControlledVehicle.create_from(self.vehicle)
             v.act(lane_change)
             beta = np.arctan(1 / 2 * np.tan(v.action['steering']))
@@ -84,7 +84,8 @@ class HOCBFQP:
                 A[i, 0] = -LgLfh[0]
                 b[i] = L2fh + self.alpha2(dhdz @ fz + self.alpha1(h)) + LgLfh[1:] @ self.mu - self.quantile * np.sqrt(LgLfh[1:] @ self.Sigma @ LgLfh[1:])
             sol = solve_qp(
-                P=np.diag([0.5] + [self.slack_panelty] * ns), q=np.array([-uref] + [self.slack_panelty] * ns),
+                P=np.diag([0.5] + slack_penalties) if isinstance(slack_penalties, list) else np.diag([0.5] + [self.slack_panelty_max] * ns),
+                q=np.array([-uref] + slack_penalties) if isinstance(slack_penalties, list) else np.array([-uref] + [self.slack_panelty_max] * ns),
                 G=A, h=b,
                 A=None, b=None,
                 lb=np.array([self.vehicle.ACCELERATION_RANGE[0]] + [0.0] * ns), ub=np.array([self.vehicle.ACCELERATION_RANGE[1]] + [np.inf] * ns),
