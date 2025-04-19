@@ -59,9 +59,19 @@ if __name__=="__main__":
             slack_penalties = []
             for o in obs[1:]:
                 if np.any([o['lane_index']==obs[0]['lane_index'], o['target_lane_index']==obs[0]['lane_index'], o['lane_index']==ego_target_lane_index, o['target_lane_index']==ego_target_lane_index]):
-                    slack_penalties.append(1e6)
+                    slack_penalties.append(1e3)
                 else:
-                    slack_penalties.append(1e-2)
+                    size = o['width'] * o['length']
+                    if size < 8.0:
+                        slack_penalties.append(1.0)
+                    elif size < 11.0:
+                        slack_penalties.append(9.0)
+                    elif size < 18.0:
+                        slack_penalties.append(25.0)
+                    elif size < 25.0:
+                        slack_penalties.append(49.0)
+                    else:
+                        slack_penalties.append(81.0)
             params.append((lane_change, 0.5, slack_penalties,))  # (lane change, speed feedback gain, penalties for slack variables)
 
         action = cbf.solve(obs, *params)
@@ -83,17 +93,25 @@ if __name__=="__main__":
     import matplotlib.pyplot as plt
 
     data_buffer = np.array(data_buffer)
-    plt.figure()
+    plt.figure(figsize=(11,5))
     plt.subplot(211)
     plt.plot(data_buffer[:, 0], ref_speed*np.ones(len(data_buffer)), 'k:')
     plt.plot(data_buffer[:, 0], data_buffer[:, 1], 'k')
-    plt.ylim([0.0, 40.0])
-    plt.ylabel('v')
+    plt.xlim([data_buffer[0, 0], data_buffer[-1, 0]])
+    plt.ylim([0.0, env.controlled_vehicles[0].MAX_SPEED * 1.05])
+    plt.ylabel('v [m/s]', fontsize=16)
+    plt.yticks(fontsize=12)
+    plt.xticks(fontsize=12)
     plt.subplot(212)
     plt.plot(data_buffer[:, 0], env.controlled_vehicles[0].MIN_SPEED*np.ones(len(data_buffer)), 'k:')
     plt.plot(data_buffer[:, 0], env.controlled_vehicles[0].MAX_SPEED*np.ones(len(data_buffer)), 'k:')
     plt.plot(data_buffer[:, 0], data_buffer[:, 2], 'k')
-    plt.ylabel('u')
-    plt.xlabel('time [s]')
+    plt.xlim([data_buffer[0, 0], data_buffer[-1, 0]])
+    plt.ylim([env.controlled_vehicles[0].MIN_SPEED * 1.1, env.controlled_vehicles[0].MAX_SPEED * 1.1])
+    plt.ylabel('v_ref [m/s]', fontsize=16)
+    plt.xlabel('time [s]', fontsize=16)
+    plt.yticks(fontsize=12)
+    plt.xticks(fontsize=12)
+    plt.tight_layout()
 
     plt.show()

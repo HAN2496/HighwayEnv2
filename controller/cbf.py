@@ -77,8 +77,8 @@ class CBFQP:
                 A[i, 0] = -dhdx @ gx
                 b[i] = dhdx @ fx + dhdo @ fo + dhdo @ go @ self.mu + self.alpha(h) - self.quantile * np.sqrt((dhdo@go) @ self.Sigma @ (dhdo@go))
             sol = solve_qp(
-                P=np.diag([0.5] + slack_penalties) if isinstance(slack_penalties, list) else np.diag([0.5] + [self.slack_panelty_max] * ns),
-                q=np.array([-uref] + slack_penalties) if isinstance(slack_penalties, list) else np.array([-uref] + [self.slack_panelty_max] * ns),
+                P = 0.5 * np.diag([1.0] + slack_penalties) if isinstance(slack_penalties, list) else 0.5 * np.diag([1.0] + [self.slack_panelty_max] * ns),
+                q = np.array([-uref] + slack_penalties) if isinstance(slack_penalties, list) else np.array([-uref] + [self.slack_panelty_max] * ns),
                 G=A, h=b,
                 A=None, b=None,
                 lb=np.array([self.vehicle.ACCELERATION_RANGE[0]*self.dt] + [0.0] * ns), ub=np.array([self.vehicle.ACCELERATION_RANGE[1]*self.dt] + [np.inf] * ns),

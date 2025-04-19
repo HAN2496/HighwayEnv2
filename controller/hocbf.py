@@ -84,8 +84,8 @@ class HOCBFQP:
                 A[i, 0] = -LgLfh[0]
                 b[i] = L2fh + self.alpha2(dhdz @ fz + self.alpha1(h)) + LgLfh[1:] @ self.mu - self.quantile * np.sqrt(LgLfh[1:] @ self.Sigma @ LgLfh[1:])
             sol = solve_qp(
-                P=np.diag([0.5] + slack_penalties) if isinstance(slack_penalties, list) else np.diag([0.5] + [self.slack_panelty_max] * ns),
-                q=np.array([-uref] + slack_penalties) if isinstance(slack_penalties, list) else np.array([-uref] + [self.slack_panelty_max] * ns),
+                P = 0.5 * np.diag([1.0] + slack_penalties) if isinstance(slack_penalties, list) else 0.5 * np.diag([1.0] + [self.slack_panelty_max] * ns),
+                q = np.array([-uref] + slack_penalties) if isinstance(slack_penalties, list) else np.array([-uref] + [self.slack_panelty_max] * ns),
                 G=A, h=b,
                 A=None, b=None,
                 lb=np.array([self.vehicle.ACCELERATION_RANGE[0]] + [0.0] * ns), ub=np.array([self.vehicle.ACCELERATION_RANGE[1]] + [np.inf] * ns),
