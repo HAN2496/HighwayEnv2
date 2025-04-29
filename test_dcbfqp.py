@@ -1,14 +1,14 @@
 import numpy as np
 from highway_env.envs import HighwayEnv
 from highway_env.utils import save_video, lmap
-from controller.cbf import CBFQP
+from controller.dcbf import DCBFQP
 from controller.utils import check_possible_lane_changes
 
 
 
 config = HighwayEnv.default_config()
-config['action']['type'] = 'LaneChangeWithTargetSpeedAction'
-#config['action']['type'] = 'LaneChangeWithThrottleAction'
+#config['action']['type'] = 'LaneChangeWithTargetSpeedAction'
+config['action']['type'] = 'LaneChangeWithThrottleAction'
 config['observation']['type'] = 'Kinematics'
 config['observation']['absolute'] = True
 config['observation']['features'] = ["presence", "x", "y", "vx", "vy", "heading", "speed", "length", "width", "lane_index", "target_lane_index", "steering"]
@@ -34,7 +34,7 @@ if __name__=="__main__":
     lane_change_frequency = 0.2
     lane_change_time_count = 0.0
 
-    cbf = CBFQP(env.controlled_vehicles[0], dt, ref_speed, alpha=lambda x:1.5*np.sqrt(x))
+    dcbf = DCBFQP(env.controlled_vehicles[0], dt, ref_speed, alpha=lambda x:0.05*x)
 
     data_buffer = []
     if env.render_mode=='rgb_array':
@@ -59,22 +59,22 @@ if __name__=="__main__":
             slack_penalties = []
             for o in obs[1:]:
                 if np.any([o['lane_index']==obs[0]['lane_index'], o['target_lane_index']==obs[0]['lane_index'], o['lane_index']==ego_target_lane_index, o['target_lane_index']==ego_target_lane_index]):
-                    slack_penalties.append(8.0)
+                    slack_penalties.append(8e1)
                 else:
                     size = o['width'] * o['length']
                     if size < 8.0:
                         slack_penalties.append(0.1)
                     elif size < 11.0:
-                        slack_penalties.append(1.2)
+                        slack_penalties.append(1e1)
                     elif size < 18.0:
-                        slack_penalties.append(2.3)
+                        slack_penalties.append(2e1)
                     elif size < 25.0:
-                        slack_penalties.append(3.4)
+                        slack_penalties.append(3e1)
                     else:
-                        slack_penalties.append(4.5)
-            params.append((lane_change, 1.0, slack_penalties,))  # (lane change, speed feedback gain, penalties for slack variables)
+                        slack_penalties.append(4e1)
+            params.append((lane_change, 0.2, slack_penalties,))  # (lane change, speed feedback gain, penalties for slack variables)
 
-        action = cbf.solve(obs, *params)
+        action = dcbf.solve(obs, *params)
         if action[0]!=1:
             lane_change_time_count = 0.0
         else:
@@ -83,7 +83,7 @@ if __name__=="__main__":
         obs, reward, terminated, truncated, info = env.step(action)
         if terminated:
             break
-        data_buffer.append([k/config['policy_frequency'], obs[0, 6], lmap(action[1], (-1.0, 1.0), (env.controlled_vehicles[0].MIN_SPEED, env.controlled_vehicles[0].MAX_SPEED))])
+        data_buffer.append([k/config['policy_frequency'], obs[0, 6], lmap(action[1], (-1.0, 1.0), env.controlled_vehicles[0].ACCELERATION_RANGE)])
         if env.render_mode=='rgb_array':
             img_buffer.append(env.render())
 
@@ -103,12 +103,12 @@ if __name__=="__main__":
     plt.yticks(fontsize=12)
     plt.xticks(fontsize=12)
     plt.subplot(212)
-    plt.plot(data_buffer[:, 0], env.controlled_vehicles[0].MIN_SPEED*np.ones(len(data_buffer)), 'k:')
-    plt.plot(data_buffer[:, 0], env.controlled_vehicles[0].MAX_SPEED*np.ones(len(data_buffer)), 'k:')
+    plt.plot(data_buffer[:, 0], env.controlled_vehicles[0].ACCELERATION_RANGE[0]*np.ones(len(data_buffer)), 'k:')
+    plt.plot(data_buffer[:, 0], env.controlled_vehicles[0].ACCELERATION_RANGE[1]*np.ones(len(data_buffer)), 'k:')
     plt.plot(data_buffer[:, 0], data_buffer[:, 2], 'k')
     plt.xlim([data_buffer[0, 0], data_buffer[-1, 0]])
-    plt.ylim([env.controlled_vehicles[0].MIN_SPEED * 1.1, env.controlled_vehicles[0].MAX_SPEED * 1.1])
-    plt.ylabel('v_ref [m/s]', fontsize=16)
+    plt.ylim(np.array(env.controlled_vehicles[0].ACCELERATION_RANGE) * 1.1)
+    plt.ylabel('u [m/s^2]', fontsize=16)
     plt.xlabel('time [s]', fontsize=16)
     plt.yticks(fontsize=12)
     plt.xticks(fontsize=12)

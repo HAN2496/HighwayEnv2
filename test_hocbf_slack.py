@@ -33,12 +33,12 @@ if __name__=="__main__":
     import matplotlib.pyplot as plt
     plt.figure(figsize=(12,7))
     plt.plot([0.0, 25.0], ref_speed*np.ones(2), 'k:')
-    #s_list = list(5**np.linspace(-3, 1, 11))
-    s_list = list(np.linspace(1e-1, 4.0**0.5, 11)**2)
+    s_list = list(np.linspace(1e-1, 5.0, 11))
+    #s_list = list(np.linspace(1e-2**0.5, 5.0**0.5, 11)**2)
     for s in s_list:
         obs, _ = env.reset(seed=2)
-        hocbf = HOCBFQP(env.controlled_vehicles[0], dt, ref_speed, alpha1=lambda x:2.5*np.sqrt(x), alpha2=lambda x:3.0*x)
-        #hocbf = HOCBFQP(env.controlled_vehicles[0], dt, ref_speed, alpha1=lambda x:0.5*x, alpha2=lambda x:3.0*x)
+        #hocbf = HOCBFQP(env.controlled_vehicles[0], dt, ref_speed, alpha1=lambda x:2.5*np.sqrt(x), alpha2=lambda x:3.0*x)
+        hocbf = HOCBFQP(env.controlled_vehicles[0], dt, ref_speed, alpha1=lambda x:2.5*np.sign(x)*np.sqrt(np.abs(x)), alpha2=lambda x:6.0*np.sign(x)*np.sqrt(np.abs(x)))
         data_buffer = []
         if env.render_mode=='rgb_array':
             img_buffer = []
@@ -92,7 +92,7 @@ if __name__=="__main__":
     plt.xlabel('time [s]', fontsize=16)
     plt.yticks(fontsize=12)
     plt.xticks(fontsize=12)
-    plt.legend(['v_ref'] + s_list)
+    plt.legend(['v_ref'] + [f'{s:.2f}' for s in s_list])
     plt.tight_layout()
 
     plt.show()

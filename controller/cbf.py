@@ -12,7 +12,7 @@ lane_change_dict = {"LANE_LEFT": 0, "IDLE": 1, "LANE_RIGHT": 2}
 
 class CBFQP:
 
-    def __init__(self, vehicle, dt, ref_speed, safe_dist=0.1, alpha=lambda x:0.5*x, mu=np.array([-0.5, 0.0]), Sigma=np.diag([1.5**2, 0.02**2]), confidence=0.98, slack_panelty_max=1e6):
+    def __init__(self, vehicle, dt, ref_speed, safe_dist=0.1, alpha=lambda x:0.5*x, mu=np.array([-1.0, 0.0]), Sigma=np.diag([2.0**2, 0.1**2]), confidence=0.98, slack_panelty_max=1e6):
         self.vehicle = vehicle
         self.dt = dt
         self.ref_speed = ref_speed
@@ -77,8 +77,9 @@ class CBFQP:
                 A[i, 0] = -dhdx @ gx
                 b[i] = dhdx @ fx + dhdo @ fo + dhdo @ go @ self.mu + self.alpha(h) - self.quantile * np.sqrt((dhdo@go) @ self.Sigma @ (dhdo@go))
             sol = solve_qp(
-                P = 0.5 * np.diag([1.0] + slack_penalties) if isinstance(slack_penalties, list) else 0.5 * np.diag([1.0] + [self.slack_panelty_max] * ns),
-                q = np.array([-uref] + slack_penalties) if isinstance(slack_penalties, list) else np.array([-uref] + [self.slack_panelty_max] * ns),
+                P = 0.5 * np.diag([1.0] + slack_penalties)**2 if isinstance(slack_penalties, list) else 0.5 * np.diag([1.0] + [self.slack_panelty_max] * ns)**2,
+                #q = np.array([-uref] + slack_penalties) if isinstance(slack_penalties, list) else np.array([-uref] + [self.slack_panelty_max] * ns),
+                q = np.array([-uref] + [0.0] * ns),
                 G=A, h=b,
                 A=None, b=None,
                 lb=np.array([self.vehicle.ACCELERATION_RANGE[0]*self.dt] + [0.0] * ns), ub=np.array([self.vehicle.ACCELERATION_RANGE[1]*self.dt] + [np.inf] * ns),

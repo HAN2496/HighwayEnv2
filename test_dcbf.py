@@ -1,7 +1,7 @@
 import numpy as np
 from highway_env.envs import HighwayEnv
 from highway_env.utils import save_video, lmap
-from controller.dcbf import DCBFIS
+from controller.dcbf import DCBFIS, DCBFQP
 from controller.utils import check_possible_lane_changes
 
 
