@@ -1,3 +1,4 @@
+import os
 import numpy as np
 from highway_env.envs import HighwayEnv
 from highway_env.utils import save_video, lmap
@@ -21,6 +22,10 @@ config['policy_frequency'] = 5
 
 
 if __name__=="__main__":
+
+    savedir = "rollout_hocbf"
+    if not os.path.isdir(savedir):
+        os.mkdir(savedir)
 
     env = HighwayEnv(config, render_mode='human')
 
@@ -104,4 +109,4 @@ if __name__=="__main__":
             obs, reward, terminated, truncated, info = env.step(action)
             if terminated:
                 break
-        np.save(f"rollout_hocbf/episode_{i}.npy", np.array(episode, dtype=object), allow_pickle=True)
+        np.save(os.path.join(savedir, f"episode_{i}.npy"), np.array(episode, dtype=object), allow_pickle=True)
