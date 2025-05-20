@@ -24,7 +24,7 @@ class CBFQP:
         self.slack_panelty_max = slack_panelty_max
 
 
-    def solve(self, obs, *params):
+    def solve(self, obs, *params, return_QP=False):
         
         current_speed = obs[0]['speed']
 
@@ -39,6 +39,7 @@ class CBFQP:
             )
             h_list.append(h(np.zeros(4)))
             dhdx_list.append(jacobian(h)(np.zeros(4)))
+        nh = len(h_list)
 
         cost = np.inf
         uref = np.clip(
@@ -47,8 +48,8 @@ class CBFQP:
         )
         action = [1, 0.0]
         if len(params) < 1:
-            params = ((lane_change, 1.0, None),)
-        for lane_change, K, slack_penalties in params:
+            params = ((lane_change, 1.0, [self.slack_panelty_max] * nh, [1.0] * nh),)
+        for lane_change, K, slack_penalties, alpha_scales in params:
             uref = np.clip(
                 current_speed + np.clip(K*(self.ref_speed-current_speed)/self.dt, *self.vehicle.ACCELERATION_RANGE) * self.dt,
                 self.vehicle.MIN_SPEED, self.vehicle.MAX_SPEED
@@ -66,23 +67,24 @@ class CBFQP:
                 ]
             )
             fx = gx * v.speed
-            ns = len(h_list)
-            A = -np.eye(ns, ns + 1, k=1)
-            b = np.zeros(ns)
+            A = -np.eye(nh, nh + 1, k=1)
+            b = np.zeros(nh)
             for i, (o, h, dhdx) in enumerate(zip(obs[1:], h_list, dhdx_list)):
                 dhdo = -dhdx
                 fo = np.array([o['vx'], o['vy'], 0.0, 0.0])
                 go = np.zeros((4, 2))
                 go[:2, :] = rotation(o['heading'])
                 A[i, 0] = -dhdx @ gx
-                b[i] = dhdx @ fx + dhdo @ fo + dhdo @ go @ self.mu + self.alpha(h) - self.quantile * np.sqrt((dhdo@go) @ self.Sigma @ (dhdo@go))
+                b[i] = dhdx @ fx + dhdo @ fo + dhdo @ go @ self.mu + alpha_scales[i] * self.alpha(h) - self.quantile * np.sqrt((dhdo@go) @ self.Sigma @ (dhdo@go))
+            P = 0.5 * np.diag([1.0] + slack_penalties)**2
+            #q = np.array([-uref] + slack_penalties)
+            q = np.array([-uref] + [0.0] * nh)
+            lb = np.array([self.vehicle.ACCELERATION_RANGE[0]*self.dt] + [0.0] * nh)
+            ub = np.array([self.vehicle.ACCELERATION_RANGE[1]*self.dt] + [np.inf] * nh)
             sol = solve_qp(
-                P = 0.5 * np.diag([1.0] + slack_penalties)**2 if isinstance(slack_penalties, list) else 0.5 * np.diag([1.0] + [self.slack_panelty_max] * ns)**2,
-                #q = np.array([-uref] + slack_penalties) if isinstance(slack_penalties, list) else np.array([-uref] + [self.slack_panelty_max] * ns),
-                q = np.array([-uref] + [0.0] * ns),
-                G=A, h=b,
+                P=P, q=q, G=A, h=b,
                 A=None, b=None,
-                lb=np.array([self.vehicle.ACCELERATION_RANGE[0]*self.dt] + [0.0] * ns), ub=np.array([self.vehicle.ACCELERATION_RANGE[1]*self.dt] + [np.inf] * ns),
+                lb=lb, ub=ub,
                 solver='quadprog'
             )
             if sol is not None:
@@ -94,4 +96,7 @@ class CBFQP:
                     action[0] = lane_change_dict[lane_change]
                     action[1] = lmap(current_speed + u, (self.vehicle.MIN_SPEED, self.vehicle.MAX_SPEED), (-1.0, 1.0))
 
-        return action
+        if return_QP:
+            return action, {"P": P, "q": q, "G":A, "h": b, "lb": lb, "ub": ub}
+        else:
+            return action

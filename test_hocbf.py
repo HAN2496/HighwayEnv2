@@ -21,7 +21,8 @@ if __name__=="__main__":
     env = HighwayEnv(config, render_mode='human')
     #env = HighwayEnv(config, render_mode='rgb_array')
 
-    max_time = 25.0
+    #max_time = 25.0
+    max_time = 100.0
     max_steps = int(max_time * config['policy_frequency'])
 
     obs = env.observe()
@@ -50,6 +51,7 @@ if __name__=="__main__":
         else:
             possible_lane_changes = ["IDLE"]
         #possible_lane_changes = ["IDLE"]
+        print([key for key in env.road.network.lanes_dict().keys()])
         
         params = []
         for lane_change in possible_lane_changes:
@@ -59,22 +61,35 @@ if __name__=="__main__":
             if lane_change=='LANE_RIGHT':
                 ego_target_lane_index += 1
             slack_penalties = []
+            alpha_scales = []
             for o in obs[1:]:
                 if np.any([o['lane_index']==obs[0]['lane_index'], o['target_lane_index']==obs[0]['lane_index'], o['lane_index']==ego_target_lane_index, o['target_lane_index']==ego_target_lane_index]):
-                    slack_penalties.append(5.0)
+                    #slack_penalties.append(5.0)
+                    slack_penalties.append(1e6)
+                    alpha_scales.append(1.0)
                 else:
                     size = o['width'] * o['length']
                     if size < 8.0:
-                        slack_penalties.append(0.1)
+                        #slack_penalties.append(0.1)
+                        slack_penalties.append(1e6)
+                        alpha_scales.append(4.0)
                     elif size < 11.0:
-                        slack_penalties.append(0.8)
+                        #slack_penalties.append(0.8)
+                        slack_penalties.append(1e6)
+                        alpha_scales.append(3.5)
                     elif size < 18.0:
-                        slack_penalties.append(1.5)
+                        #slack_penalties.append(1.5)
+                        slack_penalties.append(1e6)
+                        alpha_scales.append(3.0)
                     elif size < 25.0:
-                        slack_penalties.append(2.2)
+                        #slack_penalties.append(2.2)
+                        slack_penalties.append(1e6)
+                        alpha_scales.append(2.5)
                     else:
-                        slack_penalties.append(2.9)
-            params.append((lane_change, 0.5, slack_penalties,))  # (lane change, speed feedback gain, penalties for slack variables)
+                        #slack_penalties.append(2.9)
+                        slack_penalties.append(1e6)
+                        alpha_scales.append(2.0)
+            params.append((lane_change, 0.5, slack_penalties, alpha_scales,))  # (lane change, speed feedback gain, penalties for slack variables)
 
         action = hocbf.solve(obs, *params)
         if action[0]!=1:

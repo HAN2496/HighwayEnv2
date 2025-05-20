@@ -264,6 +264,14 @@ class ControlledVehicle(Vehicle):
     def to_dict(self, origin_vehicle = None, observe_intentions = True):
         d = super().to_dict(origin_vehicle, observe_intentions)
         d['target_lane_index'] = self.target_lane_index[-1]
+        target_lane = self.road.network.get_lane(self.target_lane_index)
+        long, lat = target_lane.local_coordinates(self.position)
+        ang = target_lane.local_angle(self.heading, long)
+        curv = (self.lane.local_angle(self.heading, long + 0.1) - ang) / 0.1
+        d['target_long_off'] = long
+        d['target_lat_off'] = lat
+        d['target_ang_off'] = ang
+        d['target_lane_curv'] = curv
         return d
 
 

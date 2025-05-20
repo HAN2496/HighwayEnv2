@@ -275,6 +275,8 @@ class Vehicle(RoadObject):
     def to_dict(
         self, origin_vehicle: Vehicle = None, observe_intentions: bool = True
     ) -> dict:
+        long, lat, ang = self.lane_offset
+        curv = (self.lane.local_angle(self.heading, long + 0.1) - ang) / 0.1
         d = {
             "presence": 1,
             "x": self.position[0],
@@ -287,14 +289,15 @@ class Vehicle(RoadObject):
             "sin_h": self.direction[1],
             "cos_d": self.destination_direction[0],
             "sin_d": self.destination_direction[1],
-            "long_off": self.lane_offset[0],
-            "lat_off": self.lane_offset[1],
-            "ang_off": self.lane_offset[2],
+            "long_off": long,
+            "lat_off": lat,
+            "ang_off": ang,
             "length": self.LENGTH,
             "width": self.WIDTH,
             "steering": self.action["steering"],
             "acceleration": self.action["acceleration"],
             "lane_index": self.lane_index[-1],
+            "lane_curv": curv,
         }
         if not observe_intentions:
             d["cos_d"] = d["sin_d"] = 0

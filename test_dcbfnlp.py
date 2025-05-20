@@ -1,7 +1,7 @@
 import numpy as np
 from highway_env.envs import HighwayEnv
 from highway_env.utils import save_video, lmap
-from controller.dcbf import DCBFQP
+from controller.dcbf import DCBFNLP
 from controller.utils import check_possible_lane_changes
 
 
@@ -34,7 +34,7 @@ if __name__=="__main__":
     lane_change_frequency = 0.2
     lane_change_time_count = 0.0
 
-    dcbf = DCBFQP(env.controlled_vehicles[0], dt, ref_speed, alpha=lambda x:0.05*x)
+    dcbf = DCBFNLP(env.controlled_vehicles[0], dt, ref_speed, sim_steps=sim_steps, alpha=lambda x:0.05*x)
 
     data_buffer = []
     if env.render_mode=='rgb_array':
