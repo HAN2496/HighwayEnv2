@@ -1,14 +1,19 @@
+import os
 import numpy as np
 import torch
 from torch.autograd import Function, Variable
 from torch.nn.parameter import Parameter
 import torch.nn.functional as F
 from torch_geometric.nn import GAT
+from torch_geometric.data import DataLoader
 from qpth.qp import QPFunction
+
+from dataset.road_scene_graph import HeteroRoadSceneDataset
 
 
 
 class Model(torch.nn.Module):
+
     def __init__(self, in_channels, hidden_channels, num_layers):
         super().__init__()
         self.gat = GAT(in_channels, hidden_channels, num_layers, 1)
@@ -22,10 +27,17 @@ class Model(torch.nn.Module):
         u = QPFunction(verbose=False)(P, q, torch.cat([G, torch.eye(n), torch.eye(n)], 0), torch.cat([h, torch.eye(lb), torch.eye(lb)], 0), e, e)
         return u
 
+if torch.cuda.is_available():
+    device = torch.device('cuda')
+elif torch.mps.is_available():
+    device = torch.device('mps')
+else:
+    device = torch.device('cpu')
 
-device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-model = Net(args.model, train_dataset.num_features, 128,
-            train_dataset.num_classes, concat=True).to(device)
+train_dataset = HeteroRoadSceneDataset(os.path.join('dataset', 'rollout_hocbf'), episode=1)
+train_loader = DataLoader(train_dataset)
+
+model = Model(train_dataset.num_features, 128, train_dataset.num_classes, concat=True).to(device)
 optimizer = torch.optim.Adam(model.parameters(), lr=0.001, weight_decay=0.01)
 
 
