@@ -123,3 +123,7 @@ def get_polygon(length=5.0, width=2.0, heading=0.0):
 
 def rotation(heading):
     return np.array([[np.cos(heading), np.sin(heading)], [-np.sin(heading), np.cos(heading)]])
+
+
+def normalize_angle(angle):
+    return np.arctan2(np.sin(angle), np.cos(angle))
