@@ -3,7 +3,7 @@ import numpy as np
 from highway_env.envs import HighwayEnv
 from highway_env.utils import save_video, lmap
 from controller.hocbf import HOCBFQP
-from controller.utils import check_possible_lane_changes
+from controller.utils import check_possible_lane_changes, get_polygon, signed_distance, Minkowski_sum
 
 
 
@@ -63,7 +63,12 @@ if __name__=="__main__":
                 slack_penalties = []
                 alpha_scales = []
                 for o in obs[1:]:
-                    if np.any([o['lane_index']==obs[0]['lane_index'], o['target_lane_index']==obs[0]['lane_index'], o['lane_index']==ego_target_lane_index, o['target_lane_index']==ego_target_lane_index]):
+                    if np.any(
+                        [o['lane_index']==obs[0]['lane_index'], o['target_lane_index']==obs[0]['lane_index'], o['lane_index']==ego_target_lane_index, o['target_lane_index']==ego_target_lane_index]
+                    ) and signed_distance(
+                        Minkowski_sum(get_polygon(obs[0]['length'], obs[0]['width'], obs[0]['heading']), get_polygon(o['length'], o['width'], o['heading'])),
+                        np.array([obs[0]['x'] - o['x'], obs[0]['y'] - o['y']])
+                    ) < 50.0:
                         slack_penalties.append(5.0)
                         alpha_scales.append(1.0)
                         #slack_penalties.append(1e6)

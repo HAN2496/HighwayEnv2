@@ -56,8 +56,6 @@ class RoadSceneDataset(InMemoryDataset):
 
 
     def process(self) -> None:
-        import networkx as nx
-        from networkx.readwrite import json_graph
 
         for file, processed_path in zip(self.raw_file_names, self.processed_paths):
             episode = np.load(os.path.join(self.raw_dir, file), allow_pickle=True)
@@ -78,7 +76,7 @@ class RoadSceneDataset(InMemoryDataset):
         col = torch.from_numpy(np.r_[np.arange(1, 5), np.zeros(4)]).to(torch.long)
         data.edge_index = torch.stack([row, col], dim=0)
         data.time = torch.from_numpy(np.array([scene['timestamp']])).to(torch.float)
-        data.lc = torch.from_numpy(np.array([lane_change_dict[scene['action'][0]]])).to(torch.float)
+        data.lc = torch.from_numpy(np.array([lane_change_dict[scene['action'][0]]])).to(torch.long)
         data.u = torch.from_numpy(np.array([5.0*scene['action'][1]])).to(torch.float)
         data.slack_penalties = torch.from_numpy(np.reshape(scene['parameters'][2], (-1, 1))).to(torch.float)
         data.P = torch.from_numpy(scene['QP']['P']).to(torch.float)
@@ -110,7 +108,7 @@ class RelativeRoadSceneDataset(RoadSceneDataset):
         data.edge_index = torch.stack([row, col], dim=0)
         data.time = torch.from_numpy(np.array([scene['timestamp']])).to(torch.float)
         data.pos = torch.from_numpy(np.c_[scene['observation'][:, 1:6]]).to(torch.float)
-        data.lc = torch.from_numpy(np.array([lane_change_dict[scene['action'][0]]])).to(torch.float)
+        data.lc = torch.from_numpy(np.array([lane_change_dict[scene['action'][0]]])).to(torch.long)
         data.u = torch.from_numpy(np.array([5.0*scene['action'][1]])).to(torch.float)
         data.slack_penalties = torch.from_numpy(np.reshape(scene['parameters'][2], (-1, 1))).to(torch.float)
         data.P = torch.from_numpy(scene['QP']['P']).to(torch.float)
@@ -128,10 +126,8 @@ class HeteroRoadSceneDataset(RoadSceneDataset):
     def data_from_scene(self, scene):
         data = HeteroData()
         data['ego_vehicle'].x = torch.from_numpy(scene['observation'][:1, 6:9]).to(torch.float)
-        data['ego_vehicle'].y = torch.from_numpy(np.reshape([scene['action']], (1, 1))).to(torch.float)
         data['ego_vehicle'].pos = torch.from_numpy(np.c_[scene['observation'][:1, 1:6]]).to(torch.float)
         data['other_vehicle'].x = torch.from_numpy(scene['observation'][1:, 6:9]).to(torch.float)
-        data['other_vehicle'].y = torch.from_numpy(np.reshape(scene['parameters'][2], (-1, 1))).to(torch.float)
         data['other_vehicle'].pos = torch.from_numpy(np.c_[scene['observation'][1:, 1:6]]).to(torch.float)
         row = torch.from_numpy(np.zeros(4)).to(torch.long)
         col = torch.from_numpy(np.arange(4)).to(torch.long)
@@ -191,7 +187,7 @@ class HeteroRoadSceneDataset(RoadSceneDataset):
             np.vstack(edge_attr)
         ).to(torch.float)
         data.time = torch.from_numpy(np.array([scene['timestamp']])).to(torch.float)
-        data.lc = torch.from_numpy(np.array([lane_change_dict[scene['action'][0]]])).to(torch.float)
+        data.lc = torch.from_numpy(np.array([lane_change_dict[scene['action'][0]]])).to(torch.long)
         data.u = torch.from_numpy(np.array([5.0*scene['action'][1]])).to(torch.float)
         data.slack_penalties = torch.from_numpy(np.array(scene['parameters'][2])).to(torch.float)
         data.P = torch.from_numpy(scene['QP']['P']).to(torch.float)
