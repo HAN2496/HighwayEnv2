@@ -27,7 +27,7 @@ class HOCBFMPC:
         self.max_samelaneobs_n = 3
 
         self.nh = self.max_difflaneobs_n + self.max_samelaneobs_n # added
-        self.slack_penalty = 1e2 # added
+        self.slack_penalty = 1e4 # added
 
         self.ocp = self._build_ocp()
         self.solver = AcadosOcpSolver(self.ocp, json_file='acados_ocp.json')
@@ -160,7 +160,9 @@ class HOCBFMPC:
         ocp.solver_options.sim_method_num_steps = 3
         ocp.solver_options.nlp_solver_max_iter = 100
         ocp.solver_options.nlp_solver_step_length = 1.0
-        ocp.solver_options.integrator_type = 'ERK'
+        ocp.solver_options.integrator_type = 'IRK' # modified (ERK -> IRK)
+        ocp.solver_options.sim_method_num_stages = 4 # added
+        ocp.solver_options.sim_method_num_steps = 3 # added
         ocp.solver_options.nlp_solver_type = 'SQP_RTI'
         ocp.solver_options.hessian_approx = 'GAUSS_NEWTON'
         ocp.dims.N = self.N
@@ -237,7 +239,7 @@ class HOCBFMPC:
 
         return [a_cmd, delta_c]
 
-    def predict_trajectory(self, obs_list, max_n):
+    def predict(self, obs_list, max_n):
         traj = zeros((len(obs_list), self.N, 4))
         for i,v in enumerate(obs_list[:max_n]):
             for k in range(self.N):
