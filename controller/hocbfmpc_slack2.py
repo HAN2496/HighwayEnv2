@@ -6,9 +6,36 @@ from numpy import zeros, diag, array, radians, hstack, clip, ones, hypot
 from casadi import SX, vertcat, Function, atan, fabs, jacobian, hessian
 from acados_template import AcadosOcp, AcadosOcpSolver, AcadosModel
 
-from .utils import signed_distance, get_polygon, Minkowski_sum
+# from .utils import signed_distance, get_polygon, Minkowski_sum
+
+def rotation(angle):
+    return ca.vertcat(
+        ca.horzcat(ca.cos(angle), -ca.sin(angle)),
+        ca.horzcat(ca.sin(angle),  ca.cos(angle))
+    )
+def get_polygon(length, width, psi):
+    pts = [
+        ca.vertcat( length/2, width/2),
+        ca.vertcat(-length/2, width/2),
+        ca.vertcat(-length/2,-width/2),
+        ca.vertcat( length/2,-width/2)
+    ]
+    R = rotation(psi)
+    return [R @ p for p in pts]
+
+def Minkowski_sum(poly1, poly2):
+    return [p1 + p2 for p1 in poly1 for p2 in poly2]
+
+def signed_distance(poly, rel):
+    d0 = ca.norm_2(poly[0] - rel)
+    d_min = d0
+    for p in poly[1:]:
+        d_min = ca.fmin(d_min, ca.norm_2(p - rel))
+    s = ca.sign(rel[0])
+    return s * d_min
+
 """
-HOCBF-MPC + h(x) 꼴
+HOCBF-MPC + h(x, z) 꼴
 """
 class HOCBFMPC:
     def __init__(self, vehicle, dt, ref_speed, ref_lane, init_state,
@@ -134,54 +161,54 @@ class HOCBFMPC:
         ocp.constraints.ubu = array([ self.max_a,   self.max_steering_angle])
         ocp.constraints.idxbu = array([0, 1])
 
-        """
-        # Nonlinear constraints -> Need to be changed for surrounding vehicles
-        s_obstacle_dist = []
-        d_obstacle_dist = []
-        for obs in s_obstacles:
-            s_obstacle_dist.append(fabs(x-obs[0]))
-        for obs in d_obstacles:
-            dx = x - obs[0]
-            dy = y - obs[1]
-            perp_dist = fabs(dx * ca.sin(psi) - dy * ca.cos(psi))
-            d_obstacle_dist.append(perp_dist)
-        
-        ocp.model.con_h_expr = ca.vertcat(*s_obstacle_dist, * d_obstacle_dist)
-        """
-
         # === HOCBF soft‐constraint 정의 시작 ===
+        x, y, v, psi = ocp.model.x[0], ocp.model.x[1], ocp.model.x[2], ocp.model.x[3]
+        a, delta = ocp.model.u[0], ocp.model.u[1]
+
+        ego_poly = get_polygon(self.Length, self.Width, psi)
+        obs_poly_template = get_polygon(self.Length, self.Width, 0)  # heading 0 으로 고정
+
         p = ocp.model.p
         idx = 4
-        s_obs_sym = []
-        for _ in range(self.max_samelaneobs_n):
-            s_obs_sym.append(p[idx:idx+2])
-            idx += 2
-        d_obs_sym = []
-        for _ in range(self.max_difflaneobs_n):
-            d_obs_sym.append(p[idx:idx+2])
+        obs_syms = []
+        for _ in range(self.max_samelaneobs_n + self.max_difflaneobs_n):
+            obs_syms.append(p[idx:idx+2])
             idx += 2
 
-        alpha1 = lambda x: self.k1* x # 작을수록 완만히
-        alpha2 = lambda x: self.k2 * x # 작을수록 완만히
-        cbf_list = []
-        all_obs = s_obs_sym + d_obs_sym
-        all_safe = [self.Length+self.ds_safe]*len(s_obs_sym) + [self.Width + self.dn_safe]*len(d_obs_sym)
-        for obs_sym, safe_rad in zip(all_obs, all_safe):
-            # signed distance
-            dx_o = x - obs_sym[0]
-            dy_o = y - obs_sym[1]
-            h = dx_o ** 2 + dy_o ** 2 - safe_rad ** 2
+        cbf_exprs = []
+        for obs in obs_syms:
+            x_o, y_o = obs[0], obs[1]
+            rel = vertcat(x - x_o, y - y_o)
 
-            # Lie derivatives
-            Lf_h = jacobian(h, state) @ f_expl
-            Lf2_h = jacobian(Lf_h, state) @ f_expl
-            LgLfh = jacobian(Lf_h, control)
+            mink = Minkowski_sum(ego_poly, obs_poly_template)
+            h = signed_distance(mink, rel)
 
-            # HOCBF expr
-            cbf_i = Lf2_h + alpha2(Lf_h + alpha1(h)) + LgLfh[0] * control[0] + LgLfh[1] * control[1]
-            cbf_list.append(cbf_i)
+            # 2) Lie derivative
+            f_expl = ocp.model.f_expl_expr
+            Lf_h = ca.jacobian(h, ocp.model.x) @ f_expl
+            Lf2_h = ca.jacobian(Lf_h, ocp.model.x) @ f_expl
+            LgLfh = ca.jacobian(Lf_h, ocp.model.u)   # [∂Lf_h/∂a, ∂Lf_h/∂δ]
 
-        ocp.model.con_h_expr = ca.vertcat(*cbf_list)
+            # 3) 장애물 제어 입력에 대한 민감도 (∂Lf_h/∂[vx_o, vy_o]) 
+            Lg_obs = ca.jacobian(Lf_h, obs)          # 2차 상태 z = [vx_o, vy_o] 로 가정
+
+            # 4) 확률적 HOCBF 조건: 
+            #    Lf2_h + α₂( Lf_h + α₁(h) ) + LgLfh·u + Lg_obs·μ − Φ⁻¹(α)·√(Lg_obs·Σ·Lg_obsᵀ) ≥ 0
+            alpha1 = lambda z: self.k1 * z
+            alpha2 = lambda z: self.k2 * z
+
+            robust_term = (Lg_obs @ self.mu
+                           - self.quantile * ca.sqrt(Lg_obs @ self.Sigma @ Lg_obs.T))
+
+            cbf_i = (Lf2_h
+                     + alpha2(Lf_h + alpha1(h))
+                     + LgLfh[0] * a
+                     + LgLfh[1] * delta
+                     + robust_term)
+
+            cbf_exprs.append(cbf_i)
+
+        ocp.model.con_h_expr = ca.vertcat(*cbf_exprs)
         nh = ocp.model.con_h_expr.size1()
 
         # soft constraint 및 slack setting
@@ -285,18 +312,12 @@ class HOCBFMPC:
         d_obs_trajectories = zeros((len(difflane_obs), self.N, self.state_n))
 
         # 예측 trajectory 생성
-        for obs_id, o in enumerate(samelane_obs):
-            for stepN in range(self.N):
-                s_obs_trajectories[obs_id, stepN, 0] = o['x'] + o['vx'] * stepN * self.dt
-                s_obs_trajectories[obs_id, stepN, 1] = o['y'] + o['vy'] * stepN * self.dt
-                s_obs_trajectories[obs_id, stepN, 2] = o['vx']
-                s_obs_trajectories[obs_id, stepN, 3] = o['heading']
-        for obs_id, o in enumerate(difflane_obs):
-            for stepN in range(self.N):
-                d_obs_trajectories[obs_id, stepN, 0] = o['x'] + o['vx'] * stepN * self.dt
-                d_obs_trajectories[obs_id, stepN, 1] = o['y'] + o['vy'] * stepN * self.dt
-                d_obs_trajectories[obs_id, stepN, 2] = o['vx']
-                d_obs_trajectories[obs_id, stepN, 3] = o['heading']
+        for i, o in enumerate(samelane_obs):
+            s_obs_trajectories[i] = self.predict_obstacle(o)
+
+        for i, o in enumerate(difflane_obs):
+            d_obs_trajectories[i] = self.predict_obstacle(o)
+
 
         x0 = array([obs[0]['x'], obs[0]['y'], obs[0]['vx'], obs[0]['heading']])
 
@@ -312,3 +333,14 @@ class HOCBFMPC:
         self.vehicle.action['steering'] = clip(delta, -self.max_steering_angle, self.max_steering_angle)
         return action
     
+
+    def predict_obstacle(self, obs_state):
+        traj = np.zeros((self.N, 4))
+        x_k, y_k, vx_k, vy_k = obs_state['x'], obs_state['y'], obs_state['vx'], obs_state['vy']
+        for k in range(self.N):
+            vx_k += self.mu[0] * self.dt
+            vy_k += self.mu[1] * self.dt
+            x_k += vx_k * self.dt
+            y_k += vy_k * self.dt
+            traj[k] = [x_k, y_k, vx_k, vy_k]
+        return traj

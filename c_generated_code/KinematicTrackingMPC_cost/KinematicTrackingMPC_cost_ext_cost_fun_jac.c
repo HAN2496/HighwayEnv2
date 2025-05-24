@@ -58,11 +58,11 @@ casadi_real casadi_sq(casadi_real x) { return x*x;}
 static const casadi_int casadi_s0[3] = {4, 1, 1};
 static const casadi_int casadi_s1[3] = {2, 1, 1};
 static const casadi_int casadi_s2[3] = {0, 1, 1};
-static const casadi_int casadi_s3[3] = {16, 1, 1};
+static const casadi_int casadi_s3[3] = {22, 1, 1};
 static const casadi_int casadi_s4[3] = {1, 1, 1};
 static const casadi_int casadi_s5[3] = {6, 1, 1};
 
-/* KinematicTrackingMPC_cost_ext_cost_fun_jac:(i0[4],i1[2],i2[0],i3[16])->(o0,o1[6]) */
+/* KinematicTrackingMPC_cost_ext_cost_fun_jac:(i0[4],i1[2],i2[0],i3[22])->(o0,o1[6]) */
 static int casadi_f0(const casadi_real** arg, casadi_real** res, casadi_int* iw, casadi_real* w, int mem) {
   casadi_real a00, a01, a02, a03, a04, a05, a06, a07, a08, a09, a10;
   a00=5.0000000000000000e-01;

@@ -69,8 +69,8 @@ int main()
     x_current[3] = 0.0;
 
   
-    x_current[0] = 179.670654296875;
-    x_current[1] = 8;
+    x_current[0] = 177.7241973876953;
+    x_current[1] = 12;
     x_current[2] = 25;
     x_current[3] = 0;
     
@@ -99,6 +99,12 @@ int main()
     p[13] = 0;
     p[14] = 0;
     p[15] = 0;
+    p[16] = 0;
+    p[17] = 0;
+    p[18] = 0;
+    p[19] = 0;
+    p[20] = 0;
+    p[21] = 0;
 
     KinematicTrackingMPC_acados_sim_update_params(capsule, p, NP);
   

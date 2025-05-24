@@ -537,30 +537,30 @@ void KinematicTrackingMPC_acados_setup_nlp_in(KinematicTrackingMPC_solver_capsul
     double* zl = zlumem+NS*2;
     double* zu = zlumem+NS*3;
     // change only the non-zero elements:
-    Zl[0] = 100;
-    Zl[1] = 100;
-    Zl[2] = 100;
-    Zl[3] = 100;
-    Zl[4] = 100;
-    Zl[5] = 100;
-    Zu[0] = 100;
-    Zu[1] = 100;
-    Zu[2] = 100;
-    Zu[3] = 100;
-    Zu[4] = 100;
-    Zu[5] = 100;
-    zl[0] = 100;
-    zl[1] = 100;
-    zl[2] = 100;
-    zl[3] = 100;
-    zl[4] = 100;
-    zl[5] = 100;
-    zu[0] = 100;
-    zu[1] = 100;
-    zu[2] = 100;
-    zu[3] = 100;
-    zu[4] = 100;
-    zu[5] = 100;
+    Zl[0] = 2000;
+    Zl[1] = 2000;
+    Zl[2] = 2000;
+    Zl[3] = 2000;
+    Zl[4] = 2000;
+    Zl[5] = 2000;
+    Zu[0] = 2000;
+    Zu[1] = 2000;
+    Zu[2] = 2000;
+    Zu[3] = 2000;
+    Zu[4] = 2000;
+    Zu[5] = 2000;
+    zl[0] = 2000;
+    zl[1] = 2000;
+    zl[2] = 2000;
+    zl[3] = 2000;
+    zl[4] = 2000;
+    zl[5] = 2000;
+    zu[0] = 2000;
+    zu[1] = 2000;
+    zu[2] = 2000;
+    zu[3] = 2000;
+    zu[4] = 2000;
+    zu[5] = 2000;
 
     for (int i = 1; i < N; i++)
     {
@@ -587,10 +587,10 @@ void KinematicTrackingMPC_acados_setup_nlp_in(KinematicTrackingMPC_solver_capsul
     double* lbx0 = lubx0;
     double* ubx0 = lubx0 + NBX0;
     // change only the non-zero elements:
-    lbx0[0] = 179.670654296875;
-    ubx0[0] = 179.670654296875;
-    lbx0[1] = 8;
-    ubx0[1] = 8;
+    lbx0[0] = 177.7241973876953;
+    ubx0[0] = 177.7241973876953;
+    lbx0[1] = 12;
+    ubx0[1] = 12;
     lbx0[2] = 25;
     ubx0[2] = 25;
 
@@ -874,8 +874,8 @@ void KinematicTrackingMPC_acados_set_nlp_out(KinematicTrackingMPC_solver_capsule
     double* x0 = xu0;
 
     // initialize with x0
-    x0[0] = 179.670654296875;
-    x0[1] = 8;
+    x0[0] = 177.7241973876953;
+    x0[1] = 12;
     x0[2] = 25;
 
 
@@ -1030,7 +1030,7 @@ int KinematicTrackingMPC_acados_update_params(KinematicTrackingMPC_solver_capsul
 {
     int solver_status = 0;
 
-    int casadi_np = 16;
+    int casadi_np = 22;
     if (casadi_np != np) {
         printf("acados_update_params: trying to set %i parameters for external functions."
             " External function has %i parameters. Exiting.\n", np, casadi_np);

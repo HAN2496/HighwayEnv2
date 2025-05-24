@@ -37,7 +37,7 @@
 #define KINEMATICTRACKINGMPC_NX     4
 #define KINEMATICTRACKINGMPC_NZ     0
 #define KINEMATICTRACKINGMPC_NU     2
-#define KINEMATICTRACKINGMPC_NP     16
+#define KINEMATICTRACKINGMPC_NP     22
 
 #ifdef __cplusplus
 extern "C" {
