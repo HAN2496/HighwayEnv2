@@ -23,7 +23,7 @@ if __name__ == "__main__":
     dt = 1.0 / config['policy_frequency']
 
     mpc = HOCBFMPC(vehicle, dt, ref_speed=35.0, ref_lane= env.controlled_vehicles[0].lane_index,
-                   init_state = obs[0][[1,2,3,5]], horizon=10, ds_safe=3, dn_safe = 0.1)
+                   init_state = obs[0][[1,2,3,5]], horizon=20, ds_safe=3, dn_safe = 0.1)
 
     max_time = 25.0
     max_steps = int(max_time * config['policy_frequency'])

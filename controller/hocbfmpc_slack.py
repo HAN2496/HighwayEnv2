@@ -1,8 +1,9 @@
 from numpy import zeros, diag, array, radians, hstack, clip, ones, hypot
-from casadi import SX, vertcat, Function, atan, fabs
+from casadi import SX, vertcat, Function, atan, fabs, jacobian, hessian
 from acados_template import AcadosOcp, AcadosOcpSolver, AcadosModel
 import casadi as ca
 
+from .utils import signed_distance, get_polygon, Minkowski_sum
 
 class HOCBFMPC:
     def __init__(self, vehicle, dt, ref_speed, ref_lane, init_state, horizon=10, ds_safe=3, dn_safe = 0.1):
@@ -26,8 +27,6 @@ class HOCBFMPC:
         self.max_difflaneobs_n = 3
         self.max_samelaneobs_n = 3
 
-        self.nh = self.max_difflaneobs_n + self.max_samelaneobs_n # added
-        self.slack_penalty = 1e4 # added
 
         self.ocp = self._build_ocp()
         self.solver = AcadosOcpSolver(self.ocp, json_file='acados_ocp.json')
@@ -75,10 +74,9 @@ class HOCBFMPC:
         np = ocp.model.p.size1()
         ocp.parameter_values = zeros(np)
 
-        # --- algebraic variables: slack z (added) ---
-        z = SX.sym('z', self.nh)
+        # algebraic variables
+        z = ca.vertcat([])
         ocp.model.z = z
-        nz = ocp.model.z.size1()
 
         # Dynamics
         beta = atan(0.5 * SX.tan(delta))
@@ -95,14 +93,13 @@ class HOCBFMPC:
         Q = diag([5e-1, 10, 1, 1e-3])
         R = diag([6, 25])
 
-        # Modified cost function        
-        stage_cost = Q[0,0]*(xref-x)**2 + \
+        ocp.model.cost_expr_ext_cost = \
+            Q[0,0]*(xref-x)**2 + \
             Q[1,1]*(yref-y)**2 + \
             Q[2,2]*(vref-v)**2 + \
             Q[3,3]*(psiref-psi)**2 + \
-            R[0,0]*a** 2 + R[1,1]*delta**2
-        slack_cost = self.slack_penalty * ca.sumsqr(z)
-        ocp.model.cost_expr_ext_cost = stage_cost + slack_cost
+            R[0,0]*a*a + \
+            R[1,1]*delta*delta
         
         ocp.model.cost_expr_ext_cost_e = \
             Q[0,0]*(xref-x)**2 + \
@@ -111,10 +108,11 @@ class HOCBFMPC:
             Q[3,3]*(psiref-psi)**2
         
         # Initial State
-        ocp.constraints.x0 = self.init_state        
+        ocp.constraints.x0 = self.init_state
 
-        # Constraints 
-        ocp.constraints.lbx =   array([ 0])
+        # Constraints
+        # ocp.constraints.lbx =   array([ 0])
+        ocp.constraints.lbx   = array([0.0]) # modified
         ocp.constraints.ubx =   array([self.max_vel])
         ocp.constraints.idxbx = array([2])
 
@@ -122,9 +120,7 @@ class HOCBFMPC:
         ocp.constraints.ubu = array([ self.max_a,   self.max_steering_angle])
         ocp.constraints.idxbu = array([0, 1])
 
-        ocp.constraints.lbz = zeros(self.nh) # added
-        ocp.constraints.ubz = 1e6 * ones(self.nh) # added
-
+        """
         # Nonlinear constraints -> Need to be changed for surrounding vehicles
         s_obstacle_dist = []
         d_obstacle_dist = []
@@ -136,21 +132,58 @@ class HOCBFMPC:
             perp_dist = fabs(dx * ca.sin(psi) - dy * ca.cos(psi))
             d_obstacle_dist.append(perp_dist)
         
-        # ocp.model.con_h_expr = ca.vertcat(*s_obstacle_dist, * d_obstacle_dist)
-        h_expr = vertcat(*s_obstacle_dist, *d_obstacle_dist) # modified
-        ocp.model.con_h_expr = h_expr + z # modified
+        ocp.model.con_h_expr = ca.vertcat(*s_obstacle_dist, * d_obstacle_dist)
+        """
 
-        lh_obstacles = array([self.Length+self.ds_safe] * self.max_samelaneobs_n + [self.Width+self.dn_safe] * self.max_difflaneobs_n)
-        uh_obstacles = array([1e+6] * self.max_samelaneobs_n + [1e+6] * self.max_difflaneobs_n)
-        ocp.constraints.lh = lh_obstacles 
-        ocp.constraints.uh = uh_obstacles
+        # === HOCBF soft‐constraint 정의 시작 ===
+        p = ocp.model.p
+        idx = 4
+        s_obs_sym = []
+        for _ in range(self.max_samelaneobs_n):
+            s_obs_sym.append(p[idx:idx+2])
+            idx += 2
+        d_obs_sym = []
+        for _ in range(self.max_difflaneobs_n):
+            d_obs_sym.append(p[idx:idx+2])
+            idx += 2
+
+        alpha1 = lambda x: 1.0 * x # 작을수록 완만히
+        alpha2 = lambda x: 2.4 * x # 작을수록 완만히
+        cbf_list = []
+        all_obs = s_obs_sym + d_obs_sym
+        all_safe = [self.Length+self.ds_safe]*len(s_obs_sym) + [self.Width + self.dn_safe]*len(d_obs_sym)
+        for obs_sym, safe_rad in zip(all_obs, all_safe):
+            # signed distance
+            dx_o = x - obs_sym[0]
+            dy_o = y - obs_sym[1]
+            h = dx_o ** 2 + dy_o ** 2 - safe_rad ** 2
+
+            # Lie derivatives
+            Lf_h = jacobian(h, state) @ f_expl
+            Lf2_h = jacobian(Lf_h, state) @ f_expl
+            LgLfh = jacobian(Lf_h, control)
+
+            # HOCBF expr
+            cbf_i = Lf2_h + alpha2(Lf_h + alpha1(h)) + LgLfh[0] * control[0] + LgLfh[1] * control[1]
+            cbf_list.append(cbf_i)
+
+        ocp.model.con_h_expr = ca.vertcat(*cbf_list)
         nh = ocp.model.con_h_expr.size1()
 
+        # soft constraint 및 slack setting
+        ocp.constraints.lh = zeros(nh)
+        ocp.constraints.uh = 1e6 * ones(nh)
         ocp.constraints.lsh = zeros(nh)
-        ocp.constraints.ush   = 1e6 * ones(nh) # modified (self.nh로 바꿀 수 있음 바꾸자 왠만하면)
+        ocp.constraints.ush = 1e6 * ones(nh)
         ocp.constraints.idxsh = array(range(nh))
 
-        ocp.cost.zl = ocp.cost.zu = ocp.cost.Zl = ocp.cost.Zu = 1e2 * ones(nh)
+        # slack penalty
+        W_cb = 1e2
+        ocp.cost.zl = W_cb * ones(nh)
+        ocp.cost.zu = W_cb * ones(nh)
+        ocp.cost.Zl = W_cb * ones(nh)
+        ocp.cost.Zu = W_cb * ones(nh)
+        # === HOCBF soft‐constraint 정의 끝 ===
 
         ocp.solver_options.tf = self.N * self.dt
         ocp.solver_options.qp_solver = 'PARTIAL_CONDENSING_HPIPM'
@@ -160,9 +193,7 @@ class HOCBFMPC:
         ocp.solver_options.sim_method_num_steps = 3
         ocp.solver_options.nlp_solver_max_iter = 100
         ocp.solver_options.nlp_solver_step_length = 1.0
-        ocp.solver_options.integrator_type = 'IRK' # modified (ERK -> IRK)
-        ocp.solver_options.sim_method_num_stages = 4 # added
-        ocp.solver_options.sim_method_num_steps = 3 # added
+        ocp.solver_options.integrator_type = 'ERK'
         ocp.solver_options.nlp_solver_type = 'SQP_RTI'
         ocp.solver_options.hessian_approx = 'GAUSS_NEWTON'
         ocp.dims.N = self.N
@@ -173,21 +204,23 @@ class HOCBFMPC:
     def solve(self, x0, ref_traj, s_obs_traj, d_obs_traj):
         self.solver.set(0, "lbx", x0)
         self.solver.set(0, "ubx", x0)
-
         # if first solve
         if self.solver.get(0, "u") is None:
             for k in range(self.N):
                 self.solver.set(k,'x',x0)
 
-        # Pad the obstacle trajectories
         s_padded_obs = zeros((self.max_samelaneobs_n, self.N, self.state_n))
         s_padded_obs[:s_obs_traj.shape[0],:,:] = s_obs_traj
 
         d_padded_obs = zeros((self.max_difflaneobs_n, self.N, self.state_n))
         d_padded_obs[:d_obs_traj.shape[0],:,:] = d_obs_traj
-        
+
+        # for k in range(self.N+1):
+        #     self.solver.set(k, "p", hstack([*ref_traj[k],*s_padded_obs[:,k-1,:2],*d_padded_obs[:,k-1,:2]]))
+
         for k in range(self.N+1):
-            self.solver.set(k, "p", hstack([*ref_traj[k],*s_padded_obs[:,k-1,:2],*d_padded_obs[:,k-1,:2]]))
+            idx = min(k, self.N-1)
+            self.solver.set(k, "p", hstack([*ref_traj[k], *s_padded_obs[:, idx, :2].ravel(), *d_padded_obs[:, idx, :2].ravel()]))
 
         status = self.solver.solve()
         if status != 0:
@@ -202,48 +235,72 @@ class HOCBFMPC:
         return u0
 
     def run(self, obs):
-        ego = obs[0]
-        ego_x, ego_y, ego_v, ego_psi = ego['x'], ego['y'], ego['vx'], ego['heading']
+        ego_x = obs[0]['x']
+        ego_y = obs[0]['y']
 
         lane = self.vehicle.road.network.get_lane(self.ref_lane)
-        s0 = lane.local_coordinates([ego_x, ego_y])[0]
+        local_s = lane.local_coordinates([ego_x, ego_y])[0]
 
         # reference trajectory 생성
         future_ref = zeros((self.N+1, self.state_n))
+        delta_s = self.ref_speed * self.dt
         for i in range(self.N+1):
-            si = s0 + self.ref_speed * self.dt * i
-            x_ref, y_ref = lane.position(si, 0.0)
-            heading_i = lane.heading_at(si)
-            future_ref[i] = [x_ref, y_ref, self.ref_speed, heading_i]
+            s_i = local_s + delta_s * (i )
+            x_ref, y_ref = lane.position(s_i, 0.0)
+            heading_i = lane.heading_at(s_i)
+            future_ref[i, 0] = x_ref
+            future_ref[i, 1] = y_ref
+            future_ref[i, 2] = self.ref_speed
+            future_ref[i, 3] = heading_i
 
-        samelane, difflane = [], []
-        for v in obs[1:]:
-            d = hypot(v['x']-ego_x, v['y']-ego_y)
-            if d<50.0:
-                if v['lane_index']==self.vehicle.lane_index[-1]:
-                    samelane.append(v)
+        # TEST: WITH Surrounding vehicles
+        samelane_obs = []
+        difflane_obs = []
+        for o in obs[1:]:
+            dx = o['x'] - ego_x
+            dy = o['y'] - ego_y
+            dist = hypot(dx, dy)
+            if dist <= 50.0:
+                if o['lane_index'] == self.vehicle.lane_index[-1]:
+                    samelane_obs.append(o)
                 else:
-                    difflane.append(v)
+                    difflane_obs.append(o)
+        samelane_obs = samelane_obs[:self.max_samelaneobs_n]
+        difflane_obs = difflane_obs[:self.max_difflaneobs_n]
 
-        same_obs_traj = self.predict(samelane, self.max_samelaneobs_n)
-        diff_obs_traj = self.predict(difflane, self.max_difflaneobs_n)
+        s_obs_trajectories = zeros((len(samelane_obs), self.N, self.state_n))
+        d_obs_trajectories = zeros((len(difflane_obs), self.N, self.state_n))
 
-        # solve
-        u = self.solve(array([ego_x,ego_y,ego_v,ego_psi]),
-                       future_ref, same_obs_traj, diff_obs_traj)
+        # 예측 trajectory 생성
+        for obs_id, o in enumerate(samelane_obs):
+            for stepN in range(self.N):
+                s_obs_trajectories[obs_id, stepN, 0] = o['x'] + o['vx'] * stepN * self.dt
+                s_obs_trajectories[obs_id, stepN, 1] = o['y'] + o['vy'] * stepN * self.dt
+                s_obs_trajectories[obs_id, stepN, 2] = o['vx']
+                s_obs_trajectories[obs_id, stepN, 3] = o['heading']
+        for obs_id, o in enumerate(difflane_obs):
+            for stepN in range(self.N):
+                d_obs_trajectories[obs_id, stepN, 0] = o['x'] + o['vx'] * stepN * self.dt
+                d_obs_trajectories[obs_id, stepN, 1] = o['y'] + o['vy'] * stepN * self.dt
+                d_obs_trajectories[obs_id, stepN, 2] = o['vx']
+                d_obs_trajectories[obs_id, stepN, 3] = o['heading']
 
-        # clipping
-        a_cmd   = clip(u[0], *self.vehicle.ACCELERATION_RANGE)
-        delta_c = clip(u[1], -self.max_steering_angle, self.max_steering_angle)
-        self.vehicle.action['steering'] = delta_c
+        x0 = array([
+            obs[0]['x'],
+            obs[0]['y'],
+            obs[0]['vx'],
+            obs[0]['heading']
+        ])
 
-        return [a_cmd, delta_c]
+        result = self.solve(x0, future_ref, s_obs_trajectories, d_obs_trajectories)
 
-    def predict(self, obs_list, max_n):
-        traj = zeros((len(obs_list), self.N, 4))
-        for i,v in enumerate(obs_list[:max_n]):
-            for k in range(self.N):
-                traj[i,k] = [v['x']+v['vx']*k*self.dt,
-                             v['y']+v['vy']*k*self.dt,
-                             v['vx'], v['heading']]
-        return traj
+        a = result[0]
+        delta = result[1]
+
+        action = [
+            1, #clip(delta, -self.max_steering_angle, self.max_steering_angle)
+            clip(a, *self.vehicle.ACCELERATION_RANGE)
+        ]
+        self.vehicle.action['steering'] = clip(delta, -self.max_steering_angle, self.max_steering_angle)
+        return action
+    

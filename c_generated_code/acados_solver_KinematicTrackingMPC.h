@@ -37,7 +37,7 @@
 #include "acados_c/external_function_interface.h"
 
 #define KINEMATICTRACKINGMPC_NX     4
-#define KINEMATICTRACKINGMPC_NZ     6
+#define KINEMATICTRACKINGMPC_NZ     0
 #define KINEMATICTRACKINGMPC_NU     2
 #define KINEMATICTRACKINGMPC_NP     16
 #define KINEMATICTRACKINGMPC_NP_GLOBAL     0
@@ -64,7 +64,7 @@
 #define KINEMATICTRACKINGMPC_NY0    0
 #define KINEMATICTRACKINGMPC_NY     0
 #define KINEMATICTRACKINGMPC_NYN    0
-#define KINEMATICTRACKINGMPC_N      10
+#define KINEMATICTRACKINGMPC_N      20
 #define KINEMATICTRACKINGMPC_NH     6
 #define KINEMATICTRACKINGMPC_NHN    0
 #define KINEMATICTRACKINGMPC_NH0    0
@@ -98,9 +98,9 @@ typedef struct KinematicTrackingMPC_solver_capsule
 
     // dynamics
 
-    external_function_external_param_casadi *impl_dae_fun;
-    external_function_external_param_casadi *impl_dae_fun_jac_x_xdot_z;
-    external_function_external_param_casadi *impl_dae_jac_x_xdot_u_z;
+    external_function_external_param_casadi *expl_vde_forw;
+    external_function_external_param_casadi *expl_ode_fun;
+    external_function_external_param_casadi *expl_vde_adj;
 
 
 

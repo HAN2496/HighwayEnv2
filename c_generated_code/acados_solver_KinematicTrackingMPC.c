@@ -166,7 +166,7 @@ void KinematicTrackingMPC_acados_create_set_plan(ocp_nlp_plan_t* nlp_solver_plan
     for (int i = 0; i < N; i++)
     {
         nlp_solver_plan->nlp_dynamics[i] = CONTINUOUS_MODEL;
-        nlp_solver_plan->sim_solver_plan[i].sim_solver = IRK;
+        nlp_solver_plan->sim_solver_plan[i].sim_solver = ERK;
     }
 
     nlp_solver_plan->nlp_constraints[0] = BGH;
@@ -355,21 +355,22 @@ void KinematicTrackingMPC_acados_create_setup_functions(KinematicTrackingMPC_sol
 
 
 
-    // implicit dae
-    capsule->impl_dae_fun = (external_function_external_param_casadi *) malloc(sizeof(external_function_external_param_casadi)*N);
+    // explicit ode
+    capsule->expl_vde_forw = (external_function_external_param_casadi *) malloc(sizeof(external_function_external_param_casadi)*N);
     for (int i = 0; i < N; i++) {
-        MAP_CASADI_FNC(impl_dae_fun[i], KinematicTrackingMPC_impl_dae_fun);
+        MAP_CASADI_FNC(expl_vde_forw[i], KinematicTrackingMPC_expl_vde_forw);
     }
 
-    capsule->impl_dae_fun_jac_x_xdot_z = (external_function_external_param_casadi *) malloc(sizeof(external_function_external_param_casadi)*N);
+    capsule->expl_ode_fun = (external_function_external_param_casadi *) malloc(sizeof(external_function_external_param_casadi)*N);
     for (int i = 0; i < N; i++) {
-        MAP_CASADI_FNC(impl_dae_fun_jac_x_xdot_z[i], KinematicTrackingMPC_impl_dae_fun_jac_x_xdot_z);
+        MAP_CASADI_FNC(expl_ode_fun[i], KinematicTrackingMPC_expl_ode_fun);
     }
 
-    capsule->impl_dae_jac_x_xdot_u_z = (external_function_external_param_casadi *) malloc(sizeof(external_function_external_param_casadi)*N);
+    capsule->expl_vde_adj = (external_function_external_param_casadi *) malloc(sizeof(external_function_external_param_casadi)*N);
     for (int i = 0; i < N; i++) {
-        MAP_CASADI_FNC(impl_dae_jac_x_xdot_u_z[i], KinematicTrackingMPC_impl_dae_jac_x_xdot_u_z);
+        MAP_CASADI_FNC(expl_vde_adj[i], KinematicTrackingMPC_expl_vde_adj);
     }
+
 
     // external cost
     capsule->ext_cost_fun = (external_function_external_param_casadi *) malloc(sizeof(external_function_external_param_casadi)*(N-1));
@@ -478,7 +479,17 @@ void KinematicTrackingMPC_acados_setup_nlp_in(KinematicTrackingMPC_solver_capsul
         cost_scaling[7] = 0.2;
         cost_scaling[8] = 0.2;
         cost_scaling[9] = 0.2;
-        cost_scaling[10] = 1;
+        cost_scaling[10] = 0.2;
+        cost_scaling[11] = 0.2;
+        cost_scaling[12] = 0.2;
+        cost_scaling[13] = 0.2;
+        cost_scaling[14] = 0.2;
+        cost_scaling[15] = 0.2;
+        cost_scaling[16] = 0.2;
+        cost_scaling[17] = 0.2;
+        cost_scaling[18] = 0.2;
+        cost_scaling[19] = 0.2;
+        cost_scaling[20] = 1;
         for (int i = 0; i <= N; i++)
         {
             ocp_nlp_cost_model_set(nlp_config, nlp_dims, nlp_in, i, "scaling", &cost_scaling[i]);
@@ -491,11 +502,9 @@ void KinematicTrackingMPC_acados_setup_nlp_in(KinematicTrackingMPC_solver_capsul
     /**** Dynamics ****/
     for (int i = 0; i < N; i++)
     {
-        ocp_nlp_dynamics_model_set_external_param_fun(nlp_config, nlp_dims, nlp_in, i, "impl_dae_fun", &capsule->impl_dae_fun[i]);
-        ocp_nlp_dynamics_model_set_external_param_fun(nlp_config, nlp_dims, nlp_in, i,
-                                   "impl_dae_fun_jac_x_xdot_z", &capsule->impl_dae_fun_jac_x_xdot_z[i]);
-        ocp_nlp_dynamics_model_set_external_param_fun(nlp_config, nlp_dims, nlp_in, i,
-                                   "impl_dae_jac_x_xdot_u", &capsule->impl_dae_jac_x_xdot_u_z[i]);
+        ocp_nlp_dynamics_model_set_external_param_fun(nlp_config, nlp_dims, nlp_in, i, "expl_vde_forw", &capsule->expl_vde_forw[i]);
+        ocp_nlp_dynamics_model_set_external_param_fun(nlp_config, nlp_dims, nlp_in, i, "expl_ode_fun", &capsule->expl_ode_fun[i]);
+        ocp_nlp_dynamics_model_set_external_param_fun(nlp_config, nlp_dims, nlp_in, i, "expl_vde_adj", &capsule->expl_vde_adj[i]);
     }
 
     /**** Cost ****/
@@ -685,12 +694,6 @@ void KinematicTrackingMPC_acados_setup_nlp_in(KinematicTrackingMPC_solver_capsul
     double* luh = calloc(2*NH, sizeof(double));
     double* lh = luh;
     double* uh = luh + NH;
-    lh[0] = 8;
-    lh[1] = 8;
-    lh[2] = 8;
-    lh[3] = 2.1;
-    lh[4] = 2.1;
-    lh[5] = 2.1;
     uh[0] = 1000000;
     uh[1] = 1000000;
     uh[2] = 1000000;
@@ -763,15 +766,6 @@ static void KinematicTrackingMPC_acados_create_set_opts(KinematicTrackingMPC_sol
 
     int globalization_full_step_dual = 0;
     ocp_nlp_solver_opts_set(nlp_config, capsule->nlp_opts, "globalization_full_step_dual", &globalization_full_step_dual);
-    // TODO: these options are lower level -> should be encapsulated! maybe through hessian approx option.
-    bool output_z_val = true;
-    bool sens_algebraic_val = true;
-
-    for (int i = 0; i < N; i++)
-    {
-        ocp_nlp_solver_opts_set_at_stage(nlp_config, nlp_opts, i, "dynamics_output_z", &output_z_val);
-        ocp_nlp_solver_opts_set_at_stage(nlp_config, nlp_opts, i, "dynamics_sens_algebraic", &sens_algebraic_val);
-    }
 
     // set collocation type (relevant for implicit integrators)
     sim_collocation_type collocation_type = GAUSS_LEGENDRE;
@@ -807,7 +801,7 @@ static void KinematicTrackingMPC_acados_create_set_opts(KinematicTrackingMPC_sol
     ocp_nlp_solver_opts_set(nlp_config, nlp_opts, "levenberg_marquardt", &levenberg_marquardt);
 
     /* options QP solver */
-    int qp_solver_cond_N;const int qp_solver_cond_N_ori = 10;
+    int qp_solver_cond_N;const int qp_solver_cond_N_ori = 20;
     qp_solver_cond_N = N < qp_solver_cond_N_ori ? N : qp_solver_cond_N_ori; // use the minimum value here
     ocp_nlp_solver_opts_set(nlp_config, nlp_opts, "qp_cond_N", &qp_solver_cond_N);
 
@@ -1014,8 +1008,6 @@ int KinematicTrackingMPC_acados_reset(KinematicTrackingMPC_solver_capsule* capsu
         if (i<N)
         {
             ocp_nlp_out_set(nlp_config, nlp_dims, nlp_out, nlp_in, i, "pi", buffer);
-            ocp_nlp_set(nlp_solver, i, "xdot_guess", buffer);
-            ocp_nlp_set(nlp_solver, i, "z_guess", buffer);
         }
     }
     // get qp_status: if NaN -> reset memory
@@ -1108,13 +1100,13 @@ int KinematicTrackingMPC_acados_free(KinematicTrackingMPC_solver_capsule* capsul
     // dynamics
     for (int i = 0; i < N; i++)
     {
-        external_function_external_param_casadi_free(&capsule->impl_dae_fun[i]);
-        external_function_external_param_casadi_free(&capsule->impl_dae_fun_jac_x_xdot_z[i]);
-        external_function_external_param_casadi_free(&capsule->impl_dae_jac_x_xdot_u_z[i]);
+        external_function_external_param_casadi_free(&capsule->expl_vde_forw[i]);
+        external_function_external_param_casadi_free(&capsule->expl_ode_fun[i]);
+        external_function_external_param_casadi_free(&capsule->expl_vde_adj[i]);
     }
-    free(capsule->impl_dae_fun);
-    free(capsule->impl_dae_fun_jac_x_xdot_z);
-    free(capsule->impl_dae_jac_x_xdot_u_z);
+    free(capsule->expl_vde_adj);
+    free(capsule->expl_vde_forw);
+    free(capsule->expl_ode_fun);
 
     // cost
     external_function_external_param_casadi_free(&capsule->ext_cost_0_fun);

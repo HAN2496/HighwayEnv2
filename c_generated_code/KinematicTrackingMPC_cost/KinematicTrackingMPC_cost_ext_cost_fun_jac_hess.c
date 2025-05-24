@@ -38,6 +38,7 @@ extern "C" {
 #define casadi_s5 CASADI_PREFIX(s5)
 #define casadi_s6 CASADI_PREFIX(s6)
 #define casadi_s7 CASADI_PREFIX(s7)
+#define casadi_s8 CASADI_PREFIX(s8)
 #define casadi_sq CASADI_PREFIX(sq)
 
 /* Symbol visibility in DLLs */
@@ -59,21 +60,19 @@ casadi_real casadi_sq(casadi_real x) { return x*x;}
 
 static const casadi_int casadi_s0[3] = {4, 1, 1};
 static const casadi_int casadi_s1[3] = {2, 1, 1};
-static const casadi_int casadi_s2[3] = {6, 1, 1};
+static const casadi_int casadi_s2[3] = {0, 1, 1};
 static const casadi_int casadi_s3[3] = {16, 1, 1};
 static const casadi_int casadi_s4[3] = {1, 1, 1};
-static const casadi_int casadi_s5[3] = {12, 1, 1};
+static const casadi_int casadi_s5[3] = {6, 1, 1};
 static const casadi_int casadi_s6[15] = 
   {6, 6, 0, 1, 2, 3, 4, 5,
   6, 0, 1, 2, 3, 4, 5};
-static const casadi_int casadi_s7[9] = 
-  {6, 6, 0, 0, 0, 0, 0, 0,
-  0};
+static const casadi_int casadi_s7[3] = {0, 0, 1};
+static const casadi_int casadi_s8[3] = {0, 6, 1};
 
-/* KinematicTrackingMPC_cost_ext_cost_fun_jac_hess:(i0[4],i1[2],i2[6],i3[16])->(o0,o1[12],o2[6x6,6nz],o3[6x6,6nz],o4[6x6,0nz]) */
+/* KinematicTrackingMPC_cost_ext_cost_fun_jac_hess:(i0[4],i1[2],i2[0],i3[16])->(o0,o1[6],o2[6x6,6nz],o3[],o4[0x6]) */
 static int casadi_f0(const casadi_real** arg, casadi_real** res, casadi_int* iw, casadi_real* w, int mem) {
-  casadi_real a00, a01, a02, a03, a04, a05, a06, a07, a08, a09, a10, a11;
-  casadi_real a12, a13, a14, a15, a16, a17, a18, a19, a20;
+  casadi_real a00, a01, a02, a03, a04, a05, a06, a07, a08, a09, a10;
   a00=5.0000000000000000e-01;
   a01=arg[3]? arg[3][0] : 0;
   a02=arg[0]? arg[0][0] : 0;
@@ -101,41 +100,19 @@ static int casadi_f0(const casadi_real** arg, casadi_real** res, casadi_int* iw,
   a02=(a02+a08);
   a08=6.;
   a09=arg[1]? arg[1][0] : 0;
-  a10=casadi_sq(a09);
-  a10=(a08*a10);
-  a02=(a02+a10);
-  a10=25.;
-  a11=arg[1]? arg[1][1] : 0;
-  a12=casadi_sq(a11);
-  a12=(a10*a12);
-  a02=(a02+a12);
-  a12=10000.;
-  a13=arg[2]? arg[2][0] : 0;
-  a14=casadi_sq(a13);
-  a15=arg[2]? arg[2][1] : 0;
-  a16=casadi_sq(a15);
-  a14=(a14+a16);
-  a16=arg[2]? arg[2][2] : 0;
-  a17=casadi_sq(a16);
-  a14=(a14+a17);
-  a17=arg[2]? arg[2][3] : 0;
-  a18=casadi_sq(a17);
-  a14=(a14+a18);
-  a18=arg[2]? arg[2][4] : 0;
-  a19=casadi_sq(a18);
-  a14=(a14+a19);
-  a19=arg[2]? arg[2][5] : 0;
-  a20=casadi_sq(a19);
-  a14=(a14+a20);
-  a14=(a12*a14);
-  a02=(a02+a14);
-  if (res[0]!=0) res[0][0]=a02;
-  a09=(a09+a09);
   a08=(a08*a09);
+  a09=(a08*a09);
+  a02=(a02+a09);
+  a09=25.;
+  a10=arg[1]? arg[1][1] : 0;
+  a09=(a09*a10);
+  a10=(a09*a10);
+  a02=(a02+a10);
+  if (res[0]!=0) res[0][0]=a02;
+  a08=(a08+a08);
   if (res[1]!=0) res[1][0]=a08;
-  a11=(a11+a11);
-  a10=(a10*a11);
-  if (res[1]!=0) res[1][1]=a10;
+  a09=(a09+a09);
+  if (res[1]!=0) res[1][1]=a09;
   a01=(a01+a01);
   a00=(a00*a01);
   a00=(-a00);
@@ -151,43 +128,18 @@ static int casadi_f0(const casadi_real** arg, casadi_real** res, casadi_int* iw,
   a06=(a06*a07);
   a06=(-a06);
   if (res[1]!=0) res[1][5]=a06;
-  a13=(a13+a13);
-  a13=(a12*a13);
-  if (res[1]!=0) res[1][6]=a13;
-  a15=(a15+a15);
-  a15=(a12*a15);
-  if (res[1]!=0) res[1][7]=a15;
-  a16=(a16+a16);
-  a16=(a12*a16);
-  if (res[1]!=0) res[1][8]=a16;
-  a17=(a17+a17);
-  a17=(a12*a17);
-  if (res[1]!=0) res[1][9]=a17;
-  a18=(a18+a18);
-  a18=(a12*a18);
-  if (res[1]!=0) res[1][10]=a18;
-  a19=(a19+a19);
-  a12=(a12*a19);
-  if (res[1]!=0) res[1][11]=a12;
-  a12=12.;
-  if (res[2]!=0) res[2][0]=a12;
-  a12=50.;
-  if (res[2]!=0) res[2][1]=a12;
-  a12=1.;
-  if (res[2]!=0) res[2][2]=a12;
-  a12=20.;
-  if (res[2]!=0) res[2][3]=a12;
-  a12=2.;
-  if (res[2]!=0) res[2][4]=a12;
-  a12=2.0000000000000000e-03;
-  if (res[2]!=0) res[2][5]=a12;
-  a12=20000.;
-  if (res[3]!=0) res[3][0]=a12;
-  if (res[3]!=0) res[3][1]=a12;
-  if (res[3]!=0) res[3][2]=a12;
-  if (res[3]!=0) res[3][3]=a12;
-  if (res[3]!=0) res[3][4]=a12;
-  if (res[3]!=0) res[3][5]=a12;
+  a06=12.;
+  if (res[2]!=0) res[2][0]=a06;
+  a06=50.;
+  if (res[2]!=0) res[2][1]=a06;
+  a06=1.;
+  if (res[2]!=0) res[2][2]=a06;
+  a06=20.;
+  if (res[2]!=0) res[2][3]=a06;
+  a06=2.;
+  if (res[2]!=0) res[2][4]=a06;
+  a06=2.0000000000000000e-03;
+  if (res[2]!=0) res[2][5]=a06;
   return 0;
 }
 
@@ -265,8 +217,8 @@ CASADI_SYMBOL_EXPORT const casadi_int* KinematicTrackingMPC_cost_ext_cost_fun_ja
     case 0: return casadi_s4;
     case 1: return casadi_s5;
     case 2: return casadi_s6;
-    case 3: return casadi_s6;
-    case 4: return casadi_s7;
+    case 3: return casadi_s7;
+    case 4: return casadi_s8;
     default: return 0;
   }
 }

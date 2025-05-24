@@ -56,11 +56,11 @@ casadi_real casadi_sq(casadi_real x) { return x*x;}
 
 static const casadi_int casadi_s0[3] = {4, 1, 1};
 static const casadi_int casadi_s1[3] = {2, 1, 1};
-static const casadi_int casadi_s2[3] = {6, 1, 1};
+static const casadi_int casadi_s2[3] = {0, 1, 1};
 static const casadi_int casadi_s3[3] = {16, 1, 1};
 static const casadi_int casadi_s4[3] = {1, 1, 1};
 
-/* KinematicTrackingMPC_cost_ext_cost_0_fun:(i0[4],i1[2],i2[6],i3[16])->(o0) */
+/* KinematicTrackingMPC_cost_ext_cost_0_fun:(i0[4],i1[2],i2[0],i3[16])->(o0) */
 static int casadi_f0(const casadi_real** arg, casadi_real** res, casadi_int* iw, casadi_real* w, int mem) {
   casadi_real a0, a1, a2, a3;
   a0=5.0000000000000000e-01;
@@ -90,32 +90,12 @@ static int casadi_f0(const casadi_real** arg, casadi_real** res, casadi_int* iw,
   a0=(a0+a1);
   a1=6.;
   a2=arg[1]? arg[1][0] : 0;
-  a2=casadi_sq(a2);
+  a1=(a1*a2);
   a1=(a1*a2);
   a0=(a0+a1);
   a1=25.;
   a2=arg[1]? arg[1][1] : 0;
-  a2=casadi_sq(a2);
   a1=(a1*a2);
-  a0=(a0+a1);
-  a1=10000.;
-  a2=arg[2]? arg[2][0] : 0;
-  a2=casadi_sq(a2);
-  a3=arg[2]? arg[2][1] : 0;
-  a3=casadi_sq(a3);
-  a2=(a2+a3);
-  a3=arg[2]? arg[2][2] : 0;
-  a3=casadi_sq(a3);
-  a2=(a2+a3);
-  a3=arg[2]? arg[2][3] : 0;
-  a3=casadi_sq(a3);
-  a2=(a2+a3);
-  a3=arg[2]? arg[2][4] : 0;
-  a3=casadi_sq(a3);
-  a2=(a2+a3);
-  a3=arg[2]? arg[2][5] : 0;
-  a3=casadi_sq(a3);
-  a2=(a2+a3);
   a1=(a1*a2);
   a0=(a0+a1);
   if (res[0]!=0) res[0][0]=a0;

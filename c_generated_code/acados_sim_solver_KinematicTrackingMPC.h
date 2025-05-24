@@ -35,7 +35,7 @@
 #include "acados_c/external_function_interface.h"
 
 #define KINEMATICTRACKINGMPC_NX     4
-#define KINEMATICTRACKINGMPC_NZ     6
+#define KINEMATICTRACKINGMPC_NZ     0
 #define KINEMATICTRACKINGMPC_NU     2
 #define KINEMATICTRACKINGMPC_NP     16
 
