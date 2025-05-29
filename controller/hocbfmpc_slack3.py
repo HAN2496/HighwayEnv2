@@ -1,6 +1,7 @@
 import numpy as np
 import casadi as ca
 from scipy.stats import norm
+from highway_env.utils import lmap
 
 from numpy import zeros, diag, array, radians, hstack, clip, ones, hypot
 from casadi import SX, vertcat, Function, atan, fabs, jacobian, hessian
@@ -136,13 +137,13 @@ class HOCBFMPC:
         dy = v * SX.sin(psi + beta)
         dv = a
         dpsi = v * SX.sin(beta) / (self.Length/2)
-        f_expl = vertcat(dx, dy, dv, dpsi)
+        f_expl = vertcat(dx, dy, dv, dpsi) 
         ocp.model.f_expl_expr = f_expl
 
         # Costs 
         ocp.cost.cost_type   = "EXTERNAL"
         ocp.cost.cost_type_e = "EXTERNAL" 
-        Q = diag([5e-1, 10, 1, 1e-3])
+        Q = diag([5e-1, 30, 1, 1e-3])
         R = diag([6, 25])
 
         ocp.model.cost_expr_ext_cost = \
@@ -186,27 +187,26 @@ class HOCBFMPC:
         for obs, flag in zip(obs_syms, lane_flags):
             rel = vertcat(x - obs[0], y - obs[1])
 
-            h_par  = h_same(rel,      self.ds_safe, self.vehicle.LENGTH)
+            h_par  = h_same(rel, self.ds_safe, self.vehicle.LENGTH)
             h_perp = h_diff(rel, self.dn_safe, self.vehicle.WIDTH)
 
-            h = (1 - flag) * h_par + flag * h_perp
+            h = h_par * self.ds_safe + h_perp * self.dn_safe
+
+            # h = (1 - flag) * h_par + flag * h_perp
 
             # Lie derivatives
-            f_expl = ocp.model.f_expl_expr
-            Lf_h   = ca.jacobian(h, ocp.model.x) @ f_expl
+            f_expl = ocp.model.f_expl_expr # xdot
+            Lf_h   = ca.jacobian(h, ocp.model.x) @ f_expl #\partial u
             Lf2_h  = ca.jacobian(Lf_h, ocp.model.x) @ f_expl
             LgLfh  = ca.jacobian(Lf_h, ocp.model.u)
             Lg_obs = ca.jacobian(Lf_h, obs)
 
             alpha1 = lambda z: self.k1 * z
             alpha2 = lambda z: self.k2 * z
-            robust = (Lg_obs @ self.mu
-                    - self.quantile * ca.sqrt(Lg_obs @ self.Sigma @ Lg_obs.T))
+            robust = (Lg_obs @ self.mu - self.quantile * ca.sqrt(Lg_obs @ self.Sigma @ Lg_obs.T))
 
-            cbf_exprs.append(
-                Lf2_h + alpha2(Lf_h + alpha1(h))
-                + LgLfh[0]*a + LgLfh[1]*delta + robust
-            )
+            temp = Lf2_h + alpha2(Lf_h + alpha1(h))+ LgLfh[0]*a + LgLfh[1]*delta + robust
+            cbf_exprs.append(-temp)
 
         ocp.model.con_h_expr = ca.vertcat(*cbf_exprs)
         nh = ocp.model.con_h_expr.size1()
@@ -292,7 +292,7 @@ class HOCBFMPC:
         future_ref = zeros((self.N+1, self.state_n))
         delta_s = self.ref_speed * self.dt
         for i in range(self.N+1):
-            s_i = local_s + delta_s * (i )
+            s_i = local_s + delta_s * (i)
             x_ref, y_ref = lane.position(s_i, 0.0)
             heading_i = lane.heading_at(s_i)
             future_ref[i, 0] = x_ref
@@ -352,9 +352,12 @@ class HOCBFMPC:
 
         a = result[0]
         delta = result[1]
+        print(f"Action: a={a}, delta={delta}")
 
         action = [
-            clip(a, *self.vehicle.ACCELERATION_RANGE),
+            lmap(np.clip(a, *self.vehicle.ACCELERATION_RANGE), self.vehicle.ACCELERATION_RANGE, (-1.0, 1.0)),
+            # clip(a, *self.vehicle.ACCELERATION_RANGE),
+            lmap(np.clip(delta, -self.max_steering_angle, self.max_steering_angle), (-self.max_steering_angle, self.max_steering_angle), (-1.0, 1.0)),
             clip(delta, -self.max_steering_angle, self.max_steering_angle)
         ]
         self.vehicle.action['steering'] = clip(delta, -self.max_steering_angle, self.max_steering_angle)

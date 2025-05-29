@@ -200,11 +200,7 @@ class HOCBFMPC:
             robust_term = (Lg_obs @ self.mu
                            - self.quantile * ca.sqrt(Lg_obs @ self.Sigma @ Lg_obs.T))
 
-            cbf_i = (Lf2_h
-                     + alpha2(Lf_h + alpha1(h))
-                     + LgLfh[0] * a
-                     + LgLfh[1] * delta
-                     + robust_term)
+            cbf_i = (Lf2_h + alpha2(Lf_h + alpha1(h)) + LgLfh[0] * a + LgLfh[1] * delta + robust_term)
 
             cbf_exprs.append(cbf_i)
 
