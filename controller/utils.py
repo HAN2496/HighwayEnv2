@@ -8,6 +8,26 @@ from highway_env.vehicle.controller import ControlledVehicle
 EXP_INPUT_MAX = np.log(np.finfo(float).max)
 EXP_INPUT_MIN = np.log(np.finfo(float).tiny)
 
+def signed_distance_cbf(
+    ego_state: NDArray,
+    other_state: NDArray,
+    ego_size: tuple[float, float],
+    other_size: tuple[float, float],
+) -> float:
+    """Compute the signed-distance CBF value h_i(x, z).
+    ego_state : array, [x, y, heading]
+    other_state : array, [x, y, heading]
+    ego_size : tuple of float, (length, width)
+    other_size : tuple of float, (length, width)
+    -------
+    Returns : float, Signed distance between vehicles according to the CBF definition.
+    """
+    ego_polygon = get_polygon(ego_size[0], ego_size[1], ego_state[2])
+    other_polygon = get_polygon(other_size[0], other_size[1], other_state[2])
+    rel_pos = ego_state[:2] - other_state[:2]
+    return signed_distance(Minkowski_sum(ego_polygon, other_polygon), rel_pos)
+
+
 
 
 def Minkowski_sum(polygon1: Iterable[NDArray], polygon2: Iterable[NDArray]) -> Iterable[NDArray]:
